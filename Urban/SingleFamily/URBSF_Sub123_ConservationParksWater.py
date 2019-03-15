@@ -10,3 +10,4 @@ def urbsfConservationParksWater(inputgeodfsql):
                      "WHERE model = 'conservation' AND land_use_type = '{}'".format(lu)
     return ProximityConservationParksWater(inputgeodfsql, sf_parcel_data, cell_size,
                                            openwater_suit, consparkow_wgt, lu)
+

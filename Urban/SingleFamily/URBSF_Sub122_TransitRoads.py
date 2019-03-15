@@ -8,6 +8,3 @@ def urbsfTransitRoads(inputgeodfsql):
                        "WHERE model = 'transitroads' AND land_use_type = '{}'".format(lu)
     return ProximityTransitRoads(inputgeodfsql, sf_parcel_data, cell_size, transitroads_wgt, lu)
 
-
-# from settings import vr_parcel_data
-print(urbsfTransitRoads(sf_parcel_data))

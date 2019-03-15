@@ -1,24 +1,25 @@
 from LUCIS_BaseCoreFunctions import *
 from settings import *
+from geopandas import GeoDataFrame
 
 
 def PhysicalNoiseQuality(inputgdfsql, noisebarriersql, lucode):
     noise_barrier_dict = PostgresTableToDict(noisebarriersql, connect_class())
 
-    input_gdf = gpd.GeoDataFrame.from_postgis(sql=inputgdfsql, con=connect_spatial())
-    airport_gdf = gpd.GeoDataFrame.from_postgis(sql=airport_noise_data, con=connect_spatial())
-    industry_gdf = gpd.GeoDataFrame.from_postgis(sql="".join(ind_parcel_data.split(parcel_uniqueid+', ')),
+    input_gdf = GeoDataFrame.from_postgis(sql=inputgdfsql, con=connect_spatial())
+    airport_gdf = GeoDataFrame.from_postgis(sql=airport_noise_data, con=connect_spatial())
+    industry_gdf = GeoDataFrame.from_postgis(sql="".join(ind_parcel_data.split(parcel_uniqueid+', ')),
                                                  con=connect_spatial())
-    racetrack_gdf = gpd.GeoDataFrame.from_postgis(sql=racetrack_parcel_data, con=connect_spatial())
-    cntbnd_gdf = gpd.GeoDataFrame.from_postgis(sql=cntbnd_data, con=connect_spatial())
-    majrds_gdf = SelectByLocation(gpd.GeoDataFrame.from_postgis(sql=majrds_wointerstate_data,
+    racetrack_gdf = GeoDataFrame.from_postgis(sql=racetrack_parcel_data, con=connect_spatial())
+    cntbnd_gdf = GeoDataFrame.from_postgis(sql=cntbnd_data, con=connect_spatial())
+    majrds_gdf = SelectByLocation(GeoDataFrame.from_postgis(sql=majrds_wointerstate_data,
                                                                 con=connect_spatial()),
                                   cntbnd_gdf)  # excluding interstate highways
-    majhwys_gdf = SelectByLocation(gpd.GeoDataFrame.from_postgis(sql=majhwys_onlyinterstate_data,
+    majhwys_gdf = SelectByLocation(GeoDataFrame.from_postgis(sql=majhwys_onlyinterstate_data,
                                                                  con=connect_spatial()),
                                    cntbnd_gdf)  # interstate highways only
-    rail_gdf = SelectByLocation(gpd.GeoDataFrame.from_postgis(sql=rail_noise_data, con=connect_spatial()), cntbnd_gdf)
-    railxing_gdf = SelectByLocation(gpd.GeoDataFrame.from_postgis(sql=railxing_noise_data,
+    rail_gdf = SelectByLocation(GeoDataFrame.from_postgis(sql=rail_noise_data, con=connect_spatial()), cntbnd_gdf)
+    railxing_gdf = SelectByLocation(GeoDataFrame.from_postgis(sql=railxing_noise_data,
                                                                   con=connect_spatial()), cntbnd_gdf)
 
     for key in noise_barrier_dict.keys():
@@ -33,8 +34,8 @@ def PhysicalNoiseQuality(inputgdfsql, noisebarriersql, lucode):
 
 
 def PhysicalSoilQuality(inputgdfsql, soilcorrwgtsql, soildrainsuitsql, soilcorrsuitsql, lucode):
-    input_gdf = gpd.GeoDataFrame.from_postgis(sql=inputgdfsql, con=connect_spatial())
-    soil_gdf = gpd.GeoDataFrame.from_postgis(sql=soil_data, con=connect_spatial())
+    input_gdf = GeoDataFrame.from_postgis(sql=inputgdfsql, con=connect_spatial())
+    soil_gdf = GeoDataFrame.from_postgis(sql=soil_data, con=connect_spatial())
 
     input_gdf['geom'] = input_gdf.centroid
     soilcorr_wdf = pd.read_sql(soilcorrwgtsql, connect_class(), index_col='class')
@@ -55,8 +56,8 @@ def PhysicalSoilQuality(inputgdfsql, soilcorrwgtsql, soildrainsuitsql, soilcorrs
 
 
 def PhysicalFlooding(inputgdfsql, floodsoilsuitsql, floodgfchabsuitsql, floodwgtsql, lucode):
-    input_gdf = gpd.GeoDataFrame.from_postgis(sql=inputgdfsql, con=connect_spatial())
-    soil_gdf = gpd.GeoDataFrame.from_postgis(sql=floodsoil_data, con=connect_spatial())
+    input_gdf = GeoDataFrame.from_postgis(sql=inputgdfsql, con=connect_spatial())
+    soil_gdf = GeoDataFrame.from_postgis(sql=floodsoil_data, con=connect_spatial())
 
     input_gdf[input_gdf.geometry.name] = input_gdf.centroid
     floodsoil_sdf = pd.read_sql(floodsoilsuitsql, connect_class())
@@ -75,13 +76,13 @@ def PhysicalFlooding(inputgdfsql, floodsoilsuitsql, floodgfchabsuitsql, floodwgt
 
 
 def PhysicalAirQuality(inputgdfsql, exstgdfsql, lucode):
-    exst_gdf = gpd.GeoDataFrame.from_postgis(sql=exstgdfsql, con=connect_spatial())
-    input_gdf = gpd.GeoDataFrame.from_postgis(sql=inputgdfsql, con=connect_spatial())
-    cntbnd_gdf = gpd.GeoDataFrame.from_postgis(sql=cntbnd_data, con=connect_spatial())
+    exst_gdf = GeoDataFrame.from_postgis(sql=exstgdfsql, con=connect_spatial())
+    input_gdf = GeoDataFrame.from_postgis(sql=inputgdfsql, con=connect_spatial())
+    cntbnd_gdf = GeoDataFrame.from_postgis(sql=cntbnd_data, con=connect_spatial())
 
-    sewtrt_gdf = SelectByLocation(gpd.GeoDataFrame.from_postgis(sql=sewagetrt_data, con=connect_spatial()), cntbnd_gdf)
-    intag_gdf = gpd.GeoDataFrame.from_postgis(sql=intensag_parcel_data, con=connect_spatial())
-    intindutil_gdf = gpd.GeoDataFrame.from_postgis(sql=intensindutil_parcel_data, con=connect_spatial())
+    sewtrt_gdf = SelectByLocation(GeoDataFrame.from_postgis(sql=sewagetrt_data, con=connect_spatial()), cntbnd_gdf)
+    intag_gdf = GeoDataFrame.from_postgis(sql=intensag_parcel_data, con=connect_spatial())
+    intindutil_gdf = GeoDataFrame.from_postgis(sql=intensindutil_parcel_data, con=connect_spatial())
 
     PointToPointLinearRescale(exst_gdf, sewtrt_gdf, 'sewtrt', 'FAR', input_gdf)
     PointToPointLinearRescale(exst_gdf, intag_gdf, 'intag', 'FAR', input_gdf)
@@ -92,9 +93,9 @@ def PhysicalAirQuality(inputgdfsql, exstgdfsql, lucode):
 
 
 def PhysicalHazard(inputgdfsql, hazardsuperfundsuitsql, hazardstatesitessuitsql, hazardwgtsql, lucode):
-    input_gdf = gpd.GeoDataFrame.from_postgis(sql=inputgdfsql, con=connect_spatial())
-    superfund_gdf = gpd.GeoDataFrame.from_postgis(sql=superfund_data, con=connect_spatial())
-    statesites_gdf = gpd.GeoDataFrame.from_postgis(sql=statehazsite_data, con=connect_spatial())
+    input_gdf = GeoDataFrame.from_postgis(sql=inputgdfsql, con=connect_spatial())
+    superfund_gdf = GeoDataFrame.from_postgis(sql=superfund_data, con=connect_spatial())
+    statesites_gdf = GeoDataFrame.from_postgis(sql=statehazsite_data, con=connect_spatial())
 
     input_gdf['superfunddist'] = ToPointDistance(input_gdf, superfund_gdf, 'euclidean')
     input_gdf['statesitesdist'] = ToPointDistance(input_gdf, statesites_gdf, 'euclidean')
@@ -110,21 +111,21 @@ def PhysicalHazard(inputgdfsql, hazardsuperfundsuitsql, hazardstatesitessuitsql,
 
 
 def ProximityServiceAmenities(inputgdfsql, exstgdfsql, schoolsyswgtsql, servicewgtsql, lucode):
-    exst_gdf = gpd.GeoDataFrame.from_postgis(sql=exstgdfsql, con=connect_spatial())
-    input_gdf = gpd.GeoDataFrame.from_postgis(sql=inputgdfsql, con=connect_spatial())
+    exst_gdf = GeoDataFrame.from_postgis(sql=exstgdfsql, con=connect_spatial())
+    input_gdf = GeoDataFrame.from_postgis(sql=inputgdfsql, con=connect_spatial())
 
-    fireresque_gdf = gpd.GeoDataFrame.from_postgis(sql=fireresque_data, con=connect_spatial())
-    police_gdf = gpd.GeoDataFrame.from_postgis(sql=police_data, con=connect_spatial())
-    hospital_gdf = gpd.GeoDataFrame.from_postgis(sql=hospital_data, con=connect_spatial())
+    fireresque_gdf = GeoDataFrame.from_postgis(sql=fireresque_data, con=connect_spatial())
+    police_gdf = GeoDataFrame.from_postgis(sql=police_data, con=connect_spatial())
+    hospital_gdf = GeoDataFrame.from_postgis(sql=hospital_data, con=connect_spatial())
     PointToPointLinearRescale(exst_gdf, fireresque_gdf, 'fireresque', 'NEAR', input_gdf)
     PointToPointLinearRescale(exst_gdf, police_gdf, 'police', 'NEAR', input_gdf)
     PointToPointLinearRescale(exst_gdf, hospital_gdf, 'hospital', 'NEAR', input_gdf)
 
     service_wdf = pd.read_sql(servicewgtsql, connect_class(), index_col='class')
     if 'school' in service_wdf.index.values:
-        highschool_gdf = gpd.GeoDataFrame.from_postgis(sql=highschool_data, con=connect_spatial())
-        middleschool_gdf = gpd.GeoDataFrame.from_postgis(sql=middleschool_data, con=connect_spatial())
-        primaryschool_gdf = gpd.GeoDataFrame.from_postgis(sql=primaryschool_data, con=connect_spatial())
+        highschool_gdf = GeoDataFrame.from_postgis(sql=highschool_data, con=connect_spatial())
+        middleschool_gdf = GeoDataFrame.from_postgis(sql=middleschool_data, con=connect_spatial())
+        primaryschool_gdf = GeoDataFrame.from_postgis(sql=primaryschool_data, con=connect_spatial())
         PointToPointLinearRescale(exst_gdf, highschool_gdf, 'highschool', 'NEAR', input_gdf)
         PointToPointLinearRescale(exst_gdf, middleschool_gdf, 'middleschool', 'NEAR', input_gdf)
         PointToPointLinearRescale(exst_gdf, primaryschool_gdf, 'primaryschool', 'NEAR', input_gdf)
@@ -141,55 +142,49 @@ def ProximityServiceAmenities(inputgdfsql, exstgdfsql, schoolsyswgtsql, servicew
 
 
 def ProximityTransitRoads(inputgdfsql, exstgdfsql, cellsize, transitroadswgtsql, lucode):
-    exst_gdf = gpd.GeoDataFrame.from_postgis(sql=exstgdfsql, con=connect_spatial())
-    input_gdf = gpd.GeoDataFrame.from_postgis(sql=inputgdfsql, con=connect_spatial())
-    # combined_gdf = pd.concat([exst_gdf, input_gdf])
-    majrds_gdf = gpd.GeoDataFrame.from_postgis(sql=majrds_data, con=connect_spatial())
-    cntbnd_gdf = gpd.GeoDataFrame.from_postgis(sql=cntbnd_data, con=connect_spatial())
-    selected_majrds_gdf = SelectByLocation(majrds_gdf, cntbnd_gdf)
-    majrds_arr = ShapeToArray(selected_majrds_gdf, cellsize)
-    input_gdf['majrdsdist'] = ToLineDistance(input_gdf, selected_majrds_gdf, cellsize, 'manhattan', majrds_arr)
-    exst_series = ToLineDistance(exst_gdf, selected_majrds_gdf, cellsize, 'manhattan', majrds_arr)
-    # combined_gdf['majrdsdist'] = ToLineDistance(combined_gdf, selected_majrds_gdf, cellsize, 'manhattan', majrds_arr)
-    # print(combined_gdf[combined_gdf.index.duplicated()])
-    # input_gdf['majrdsdist'] = combined_gdf.loc[combined_gdf[parcel_uniqueid].isin(input_gdf[parcel_uniqueid]),
-    #                                            'majrdsdist']
-    # exst_series = combined_gdf.loc[combined_gdf[parcel_uniqueid].isin(exst_gdf[parcel_uniqueid]), 'majrdsdist']
+    exst_gdf = GeoDataFrame.from_postgis(sql=exstgdfsql, con=connect_spatial())
+    input_gdf = GeoDataFrame.from_postgis(sql=inputgdfsql, con=connect_spatial())
+    majrds_gdf = SelectByLocation(GeoDataFrame.from_postgis(sql=majrds_data, con=connect_spatial()),
+                                  GeoDataFrame.from_postgis(sql=cntbnd_data, con=connect_spatial()))
+    majrds_arr = ShapeToArray(majrds_gdf, cellsize)
+
+    input_gdf['majrdsdist'] = ToLineDistance(input_gdf, majrds_gdf, cellsize, 'manhattan', majrds_arr)
+    exst_series = ToLineDistance(exst_gdf, majrds_gdf, cellsize, 'manhattan', majrds_arr)
+
     dist_mean = np.mean(exst_series)
     dist_max = np.max(exst_series)
     LinearRescale(input_gdf, 'majrdsdist', 'majrdsdist_suit', dist_max, dist_mean, 1, 9)
-    input_gdf['majrdsden'] = ZonalShapeDensity(selected_majrds_gdf, input_gdf, cellsize, majrds_arr)
+    input_gdf['majrdsden'] = ZonalShapeDensity(majrds_gdf, input_gdf, cellsize, majrds_arr)
     RescaleByGammaDistribution(input_gdf, 'majrdsden', 'majrdsden_suit')
     roads_wdf = pd.read_sql(transitroadswgtsql, connect_class(), index_col='class')
     WeightedSum(input_gdf, ['majrdsdist_suit', 'majrdsden_suit'], roads_wdf, 'transitroads_suit')
     return pd.Series(input_gdf['transitroads_suit'].values,
-                     index=input_gdf[parcel_uniqueid], name=lucode+'_transitroads')
+                     index=input_gdf[parcel_uniqueid],
+                     name=lucode+'_transitroads')
 
 
 def ProximityConservationParksWater(inputgdfsql, exstgdfsql, cellsize, owsuitsql, consparkowwgtsql, lucode):
-    exst_gdf = gpd.GeoDataFrame.from_postgis(sql=exstgdfsql, con=connect_spatial())
-    input_gdf = gpd.GeoDataFrame.from_postgis(sql=inputgdfsql, con=connect_spatial())
-    combined_gdf = pd.concat([exst_gdf, input_gdf])
-    cntbnd_gdf = gpd.GeoDataFrame.from_postgis(sql=cntbnd_data, con=connect_spatial())
+    exst_gdf = GeoDataFrame.from_postgis(sql=exstgdfsql, con=connect_spatial())
+    input_gdf = GeoDataFrame.from_postgis(sql=inputgdfsql, con=connect_spatial())
 
-    flma_gdf = SelectByLocation(gpd.GeoDataFrame.from_postgis(sql=flma_data, con=connect_spatial()), cntbnd_gdf)
-    combined_gdf['flmadist'] = ToPolygonDistance(combined_gdf, flma_gdf, cellsize, 'euclidean')
-    input_gdf['flmadist'] = combined_gdf.loc[combined_gdf[parcel_uniqueid].isin(input_gdf[parcel_uniqueid]), 'flmadist']
-    exst_dist = combined_gdf.loc[combined_gdf[parcel_uniqueid].isin(exst_gdf[parcel_uniqueid]), 'flmadist']
+    flma_gdf = SelectByLocation(GeoDataFrame.from_postgis(sql=flma_data, con=connect_spatial()),
+                                GeoDataFrame.from_postgis(sql=cntbnd_data, con=connect_spatial()))
+    flma_arr = ShapeToArray(flma_gdf, cellsize)
+    input_gdf['flmadist'] = ToPolygonDistance(input_gdf, flma_gdf, cellsize, 'euclidean', flma_arr)
+    exst_dist = ToPolygonDistance(exst_gdf, flma_gdf, cellsize, 'euclidean', flma_arr)
     dist_mean = np.mean(exst_dist)
     dist_max = np.max(exst_dist)
     input_gdf = LinearRescale(input_gdf, 'flmadist', 'flma_distsuit', dist_max, dist_mean, 1, 9)
 
-    parks_gdf = gpd.GeoDataFrame.from_postgis(sql=parks_data, con=connect_spatial())
-    combined_gdf['parksdist'] = ToPointDistance(combined_gdf, parks_gdf, 'euclidean')
-    input_gdf['parksdist'] = combined_gdf.loc[combined_gdf[parcel_uniqueid].isin(input_gdf[parcel_uniqueid]),
-                                              'parksdist']
-    exst_dist = combined_gdf.loc[combined_gdf[parcel_uniqueid].isin(exst_gdf[parcel_uniqueid]), 'parksdist']
+    parks_gdf = GeoDataFrame.from_postgis(sql=parks_data, con=connect_spatial())
+    input_gdf['parksdist'] = ToPointDistance(input_gdf, parks_gdf, 'euclidean')
+    exst_dist = ToPointDistance(exst_gdf, parks_gdf, 'euclidean')
     dist_mean = np.mean(exst_dist)
     dist_max = np.max(exst_dist)
     input_gdf = LinearRescale(input_gdf, 'parksdist', 'parks_distsuit', dist_max, dist_mean, 1, 9)
 
-    nhd24_gdf = SelectByLocation(gpd.GeoDataFrame.from_postgis(sql=nhdwaterbody_data, con=connect_spatial()), cntbnd_gdf)
+    nhd24_gdf = SelectByLocation(GeoDataFrame.from_postgis(sql=nhdwaterbody_data, con=connect_spatial()),
+                                 GeoDataFrame.from_postgis(sql=cntbnd_data, con=connect_spatial()))
     input_gdf['nhd24dist'] = ToPolygonDistance(input_gdf, nhd24_gdf, cellsize, 'euclidean')
     input_gdf['gfchabdist'] = ToRasterDistance(input_gdf, gfchabraster, rasterconn, gfchab_ow_value, 'euclidean')
     input_gdf['openwaterdist'] = np.where(input_gdf['nhd24dist'] < input_gdf['gfchabdist'],
@@ -198,19 +193,20 @@ def ProximityConservationParksWater(inputgdfsql, exstgdfsql, cellsize, owsuitsql
     input_gdf['openwater_distsuit'] = RescaleByInterval(input_gdf, ow_sdf, 'openwaterdist')
 
     consparkow_wdf = pd.read_sql(consparkowwgtsql, connect_class(), index_col='class')
-    WeightedSum(input_gdf, ['flma_distsuit', 'parks_distsuit', 'openwater_distsuit'], consparkow_wdf, 'consparkow_suit')
-    return pd.Series(input_gdf['consparkow_suit'].values, index=input_gdf[parcel_uniqueid], name=lucode+'_consparkow')
+    WeightedSum(input_gdf, ['flma_distsuit', 'parks_distsuit', 'openwater_distsuit'],
+                consparkow_wdf, 'consparkow_suit')
+    return pd.Series(input_gdf['consparkow_suit'].values,
+                     index=input_gdf[parcel_uniqueid],
+                     name=lucode + '_consparkow')
 
 
 def ProximityShopping(inputgdfsql, exstgdfsql, lucode):
-    exst_gdf = gpd.GeoDataFrame.from_postgis(sql=exstgdfsql, con=connect_spatial())
-    input_gdf = gpd.GeoDataFrame.from_postgis(sql=inputgdfsql, con=connect_spatial())
-    combined_gdf = pd.concat([exst_gdf, input_gdf])
+    exst_gdf = GeoDataFrame.from_postgis(sql=exstgdfsql, con=connect_spatial())
+    input_gdf = GeoDataFrame.from_postgis(sql=inputgdfsql, con=connect_spatial())
+    shop_gdf = GeoDataFrame.from_postgis(sql=ret_parcel_data, con=connect_spatial())
 
-    shop_gdf = gpd.GeoDataFrame.from_postgis(sql=ret_parcel_data, con=connect_spatial())
-    combined_gdf['shopdist'] = ToPointDistance(combined_gdf, shop_gdf, 'manhattan')
-    input_gdf['shopdist'] = combined_gdf.loc[combined_gdf[parcel_uniqueid].isin(input_gdf[parcel_uniqueid]), 'shopdist']
-    exst_dist = combined_gdf.loc[combined_gdf[parcel_uniqueid].isin(exst_gdf[parcel_uniqueid]), 'shopdist']
+    input_gdf['shopdist'] = ToPointDistance(input_gdf, shop_gdf, 'manhattan')
+    exst_dist = ToPointDistance(exst_gdf, shop_gdf, 'manhattan')
     dist_mean = np.mean(exst_dist)
     dist_max = np.max(exst_dist)
     LinearRescale(input_gdf, 'shopdist', 'shop_suit', dist_max, dist_mean, 1, 9)
@@ -220,8 +216,8 @@ def ProximityShopping(inputgdfsql, exstgdfsql, lucode):
 def ProximityExistingLandUse(inputgdfsql, exstgdfsql, exstcutyear, lucode):
     exstgeomix = exstgdfsql.find('geom')
     exstyrgdfsql = exstgdfsql[:exstgeomix] + yearbltfield + ', ' + exstgdfsql[exstgeomix:]
-    exst_gdf = gpd.GeoDataFrame.from_postgis(sql=exstyrgdfsql, con=connect_spatial())
-    input_gdf = gpd.GeoDataFrame.from_postgis(sql=inputgdfsql, con=connect_spatial())
+    exst_gdf = GeoDataFrame.from_postgis(sql=exstyrgdfsql, con=connect_spatial())
+    input_gdf = GeoDataFrame.from_postgis(sql=inputgdfsql, con=connect_spatial())
     bfore_gdf = exst_gdf[exst_gdf[yearbltfield] < exstcutyear]
     after_gdf = exst_gdf[exst_gdf[yearbltfield] >= exstcutyear]
 
@@ -230,83 +226,85 @@ def ProximityExistingLandUse(inputgdfsql, exstgdfsql, exstcutyear, lucode):
     dist_max = np.max(aftertobfore_dist)
     input_gdf['exstludist'] = ToPointDistance(input_gdf, exst_gdf, 'euclidean')
     LinearRescale(input_gdf, 'exstludist', 'exstlu_suit', dist_max, dist_mean, 1, 9)
-    return pd.Series(input_gdf['exstlu_suit'].values, index=input_gdf[parcel_uniqueid], name=lucode+'_exstlu')
+    return pd.Series(input_gdf['exstlu_suit'].values,
+                     index=input_gdf[parcel_uniqueid],
+                     name=lucode+'_exstlu')
 
 
 def ProximityInfrastructure(inputgdfsql, exstgdfsql, proxiinfraswgtsql, lucode):
-    exst_gdf = gpd.GeoDataFrame.from_postgis(sql=exstgdfsql, con=connect_spatial())
-    input_gdf = gpd.GeoDataFrame.from_postgis(sql=inputgdfsql, con=connect_spatial())
-    combined_gdf = pd.concat([exst_gdf, input_gdf])
+    exst_gdf = GeoDataFrame.from_postgis(sql=exstgdfsql, con=connect_spatial())
+    input_gdf = GeoDataFrame.from_postgis(sql=inputgdfsql, con=connect_spatial())
+    wtreat_gdf = GeoDataFrame.from_postgis(sql=watertreat_data, con=connect_spatial())
+    sewtrt_gdf = GeoDataFrame.from_postgis(sql=sewagetrt_data, con=connect_spatial())
 
-    wtreat_gdf = gpd.GeoDataFrame.from_postgis(sql=watertreat_data, con=connect_spatial())
-    combined_gdf['wtreatdist'] = ToPointDistance(combined_gdf, wtreat_gdf, 'euclidean')
-    input_gdf['wtreatdist'] = combined_gdf.loc[combined_gdf[parcel_uniqueid].isin(input_gdf[parcel_uniqueid]),
-                                               'wtreatdist']
-    exst_dist = combined_gdf.loc[combined_gdf[parcel_uniqueid].isin(exst_gdf[parcel_uniqueid]), 'wtreatdist']
+    input_gdf['wtreatdist'] = ToPointDistance(input_gdf, wtreat_gdf, 'euclidean')
+    exst_dist = ToPointDistance(exst_gdf, wtreat_gdf, 'euclidean')
     dist_mean = np.mean(exst_dist)
     dist_max = np.max(exst_dist)
     LinearRescale(input_gdf, 'wtreatdist', 'wtreatdist_suit', dist_max, dist_mean, 1, 9)
 
-    sewtrt_gdf = gpd.GeoDataFrame.from_postgis(sql=sewagetrt_data, con=connect_spatial())
-    combined_gdf['sewtrtdist'] = ToPointDistance(combined_gdf, sewtrt_gdf, 'euclidean')
-    input_gdf['sewtrtdist'] = combined_gdf.loc[combined_gdf[parcel_uniqueid].isin(input_gdf[parcel_uniqueid]),
-                                               'sewtrtdist']
-    exst_dist = combined_gdf.loc[combined_gdf[parcel_uniqueid].isin(exst_gdf[parcel_uniqueid]), 'sewtrtdist']
+    input_gdf['sewtrtdist'] = ToPointDistance(input_gdf, sewtrt_gdf, 'euclidean')
+    exst_dist = ToPointDistance(exst_gdf, sewtrt_gdf, 'euclidean')
     dist_mean = np.mean(exst_dist)
     dist_max = np.max(exst_dist)
     LinearRescale(input_gdf, 'sewtrtdist', 'sewtrtdist_suit', dist_max, dist_mean, 1, 9)
+
     infras_wdf = pd.read_sql(proxiinfraswgtsql, connect_class(), index_col='class')
-    WeightedSum(input_gdf, ['wtreatdist_suit', 'sewtrtdist_suit'], infras_wdf, 'infrastructure_suit')
+    WeightedSum(input_gdf, ['wtreatdist_suit', 'sewtrtdist_suit'],
+                infras_wdf, 'infrastructure_suit')
     return pd.Series(input_gdf['infrastructure_suit'].values,
-                     index=input_gdf[parcel_uniqueid], name=lucode+'_infrastructure')
+                     index=input_gdf[parcel_uniqueid],
+                     name=lucode+'_infrastructure')
 
 
 def ProximityEntertainment(inputgdfsql, exstgdfsql, cellsize, entertainwgtsql, lucode):
-    exst_gdf = gpd.GeoDataFrame.from_postgis(sql=exstgdfsql, con=connect_spatial())
-    input_gdf = gpd.GeoDataFrame.from_postgis(sql=inputgdfsql, con=connect_spatial())
-    combined_gdf = pd.concat([exst_gdf, input_gdf])
+    exst_gdf = GeoDataFrame.from_postgis(sql=exstgdfsql, con=connect_spatial())
+    input_gdf = GeoDataFrame.from_postgis(sql=inputgdfsql, con=connect_spatial())
+    entertain_gdf = GeoDataFrame.from_postgis(sql=ent_parcel_data, con=connect_spatial())
 
-    entertain_gdf = gpd.GeoDataFrame.from_postgis(sql=ent_parcel_data, con=connect_spatial())
-    combined_gdf['entertaindist'] = ToPointDistance(combined_gdf, entertain_gdf, 'manhattan')
-    input_gdf['entertaindist'] = combined_gdf.loc[combined_gdf[parcel_uniqueid].isin(input_gdf[parcel_uniqueid]),
-                                                  'entertaindist']
-    exst_dist = combined_gdf.loc[combined_gdf[parcel_uniqueid].isin(exst_gdf[parcel_uniqueid]), 'entertaindist']
+    input_gdf['entertaindist'] = ToPointDistance(input_gdf, entertain_gdf, 'manhattan')
+    exst_dist = ToPointDistance(exst_gdf, entertain_gdf, 'euclidean')
     dist_mean = np.mean(exst_dist)
     dist_max = np.max(exst_dist)
     LinearRescale(input_gdf, 'entertaindist', 'entertaindist_suit', dist_max, dist_mean, 1, 9)
+
     input_gdf['entertainden'] = ZonalShapeDensity(entertain_gdf, input_gdf, cellsize)
     input_gdf = RescaleByGammaDistribution(input_gdf, 'entertainden', 'entertainden_suit')
+
     entertain_wdf = pd.read_sql(entertainwgtsql, connect_class(), index_col='class')
     WeightedSum(input_gdf, ['entertaindist_suit', 'entertainden_suit'], entertain_wdf, 'entertain_suit')
-    return pd.Series(input_gdf['entertain_suit'].values, index=input_gdf[parcel_uniqueid], name=lucode+'_entertain')
+    return pd.Series(input_gdf['entertain_suit'].values,
+                     index=input_gdf[parcel_uniqueid],
+                     name=lucode+'_entertain')
 
 
 def ProximityInverse(inputgdfsql, exstgdfsql, antigeodfsql, antiname, lucode):
-    exst_gdf = gpd.GeoDataFrame.from_postgis(sql=exstgdfsql, con=connect_spatial())
-    input_gdf = gpd.GeoDataFrame.from_postgis(sql=inputgdfsql, con=connect_spatial())
-    combined_gdf = pd.concat([exst_gdf, input_gdf])
+    exst_gdf = GeoDataFrame.from_postgis(sql=exstgdfsql, con=connect_spatial())
+    input_gdf = GeoDataFrame.from_postgis(sql=inputgdfsql, con=connect_spatial())
+    anti_gdf = GeoDataFrame.from_postgis(sql=antigeodfsql, con=connect_spatial())
 
-    anti_gdf = gpd.GeoDataFrame.from_postgis(sql=antigeodfsql, con=connect_spatial())
-    combined_gdf['antidist'] = ToPointDistance(combined_gdf, anti_gdf, 'euclidean')
-    input_gdf['antidist'] = combined_gdf.loc[combined_gdf[parcel_uniqueid].isin(input_gdf[parcel_uniqueid]), 'antidist']
-    exst_dist = combined_gdf.loc[combined_gdf[parcel_uniqueid].isin(exst_gdf[parcel_uniqueid]), 'antidist']
+    input_gdf['antidist'] = ToPointDistance(input_gdf, anti_gdf, 'euclidean')
+    exst_dist = ToPointDistance(exst_gdf, anti_gdf, 'euclidean')
     dist_mean = np.mean(exst_dist)
     dist_min = np.min(exst_dist)
+
     LinearRescale(input_gdf, 'antidist', 'anti_suit', dist_min, dist_mean, 1, 9)
-    return pd.Series(input_gdf['anti_suit'].values, index=input_gdf[parcel_uniqueid], name=lucode+'_anti'+antiname)
+    return pd.Series(input_gdf['anti_suit'].values,
+                     index=input_gdf[parcel_uniqueid],
+                     name=lucode+'_anti'+antiname)
 
 
 def ProximityLandValue(inputgdfsql, exstgdfsql, lucode):
     inputgeomix = inputgdfsql.find('geom')
     inputlvgdfsql = inputgdfsql[:inputgeomix] + landvaluefield + ', ' + inputgdfsql[inputgeomix:]
-    input_gdf = gpd.GeoDataFrame.from_postgis(sql=inputlvgdfsql, con=connect_spatial())
+    input_gdf = GeoDataFrame.from_postgis(sql=inputlvgdfsql, con=connect_spatial())
     exstgeomix = exstgdfsql.find('geom')
     exstlvgdfsql = exstgdfsql[:exstgeomix] + landvaluefield + ', ' + exstgdfsql[exstgeomix:]
-    exst_gdf = gpd.GeoDataFrame.from_postgis(sql=exstlvgdfsql, con=connect_spatial())
+    exst_gdf = GeoDataFrame.from_postgis(sql=exstlvgdfsql, con=connect_spatial())
     input_gdf['dolperacre'] = input_gdf['jv'] / (input_gdf.area / sqmtoacre)
     exst_gdf['dolperacre'] = exst_gdf['jv'] / (exst_gdf.area / sqmtoacre)
     if np.any(input_gdf['dolperacre'] == 0) | np.any(exst_gdf['dolperacre'] == 0):
-        landvalue_gdf = gpd.GeoDataFrame.from_postgis(
+        landvalue_gdf = GeoDataFrame.from_postgis(
             sql="SELECT {}, geom FROM {} WHERE {} > 0".format(landvaluefield, parcel, landvaluefield),
             con=connect_spatial())
         landvalue_gdf['dolperacre'] = landvalue_gdf['jv'] / (landvalue_gdf.area / sqmtoacre)
@@ -329,7 +327,7 @@ def ProximityLandValue(inputgdfsql, exstgdfsql, lucode):
 def PresentLandUse(inputgdfsql, gfchabsuitsql, yrsuitsql, actusewgtsql, lucode):
     inputgeomix = inputgdfsql.find('geom')
     inputyrgdfsql = inputgdfsql[:inputgeomix] + yearbltfield + ', ' + lucodefield + ', ' + inputgdfsql[inputgeomix:]
-    input_gdf = gpd.GeoDataFrame.from_postgis(sql=inputyrgdfsql, con=connect_spatial())
+    input_gdf = GeoDataFrame.from_postgis(sql=inputyrgdfsql, con=connect_spatial())
     gfchab_data = PostgresRasterToArray(gfchabraster, rasterconn)
     input_gdf['gfchab_suit'] = ZonalStatsRasterArray(input_gdf,
                                                      ReclassifyRasterArray(
@@ -369,10 +367,10 @@ def PresentLandUse(inputgdfsql, gfchabsuitsql, yrsuitsql, actusewgtsql, lucode):
 def LandUseGrowth(inputgdfsql, exstgdfsql, growthrangedict, lucode):
     exstgeomix = exstgdfsql.find('geom')
     exstyeargdfsql = exstgdfsql[:exstgeomix] + yearbltfield + ', ' + exstgdfsql[exstgeomix:]
-    exst_gdf = gpd.GeoDataFrame.from_postgis(sql=exstyeargdfsql, con=connect_spatial())
+    exst_gdf = GeoDataFrame.from_postgis(sql=exstyeargdfsql, con=connect_spatial())
     exst_gdf['area'] = exst_gdf.area / sqmtoacre
     exst_gdf[exst_gdf.geometry.name] = exst_gdf.centroid
-    plss_gdf = gpd.GeoDataFrame.from_postgis(sql=plss_data, con=connect_spatial())
+    plss_gdf = GeoDataFrame.from_postgis(sql=plss_data, con=connect_spatial())
     plssexst_gdf = gpd.sjoin(plss_gdf, exst_gdf, how='inner', op='intersects')
 
     for growth in growthrangedict.keys():
@@ -381,7 +379,7 @@ def LandUseGrowth(inputgdfsql, exstgdfsql, growthrangedict, lucode):
         plss_gdf = plss_gdf.join(growthdata.groupby(growthdata.index)['area'].sum()).rename(columns={'area': growth})
     plss_gdf.fillna(0, inplace=True)
 
-    input_gdf = gpd.GeoDataFrame.from_postgis(sql=inputgdfsql, con=connect_spatial())
+    input_gdf = GeoDataFrame.from_postgis(sql=inputgdfsql, con=connect_spatial())
     input_gdf['lugrowth'] = 0
     for growth in growthrangedict.keys():
         input_gdf['lugrowth'] = input_gdf['lugrowth'] + IDW(input_gdf, plss_gdf, growth) * growthrangedict[growth][2]
@@ -392,107 +390,107 @@ def LandUseGrowth(inputgdfsql, exstgdfsql, growthrangedict, lucode):
 
 
 def ProximityRetail(inputgdfsql, exstgdfsql, cellsize, retailwgtsql, lucode):
-    exst_gdf = gpd.GeoDataFrame.from_postgis(sql=exstgdfsql, con=connect_spatial())
-    input_gdf = gpd.GeoDataFrame.from_postgis(sql=inputgdfsql, con=connect_spatial())
-    combined_gdf = pd.concat([exst_gdf, input_gdf])
+    exst_gdf = GeoDataFrame.from_postgis(sql=exstgdfsql, con=connect_spatial())
+    input_gdf = GeoDataFrame.from_postgis(sql=inputgdfsql, con=connect_spatial())
+    retail_gdf = GeoDataFrame.from_postgis(sql=ret_parcel_data, con=connect_spatial())
 
-    retail_gdf = gpd.GeoDataFrame.from_postgis(sql=ret_parcel_data, con=connect_spatial())
-    combined_gdf['retaildist'] = ToPointDistance(combined_gdf, retail_gdf, 'manhattan')
-    input_gdf['retaildist'] = combined_gdf.loc[combined_gdf[parcel_uniqueid].isin(input_gdf[parcel_uniqueid]),
-                                               'retaildist']
-    exst_dist = combined_gdf.loc[combined_gdf[parcel_uniqueid].isin(exst_gdf[parcel_uniqueid]), 'retaildist']
+    input_gdf['retaildist'] = ToPointDistance(input_gdf, retail_gdf, 'manhattan')
+    exst_dist = ToPointDistance(exst_gdf, retail_gdf, 'manhattan')
     dist_mean = np.mean(exst_dist)
     dist_max = np.max(exst_dist)
     LinearRescale(input_gdf, 'retaildist', 'retaildist_suit', dist_max, dist_mean, 1, 9)
+
     input_gdf['retailden'] = ZonalShapeDensity(retail_gdf, input_gdf, cellsize)
     RescaleByGammaDistribution(input_gdf, 'retailden', 'retailden_suit')
     retail_wdf = pd.read_sql(retailwgtsql, connect_class(), index_col='class')
     WeightedSum(input_gdf, ['retaildist_suit', 'retailden_suit'], retail_wdf, 'retail_suit')
-    return pd.Series(input_gdf['retail_suit'].values, index=input_gdf[parcel_uniqueid], name=lucode+'_retail')
+    return pd.Series(input_gdf['retail_suit'].values,
+                     index=input_gdf[parcel_uniqueid],
+                     name=lucode+'_retail')
 
 
 def ProximityResidential(inputgdfsql, exstgdfsql, lucode):
-    exst_gdf = gpd.GeoDataFrame.from_postgis(sql=exstgdfsql, con=connect_spatial())
-    input_gdf = gpd.GeoDataFrame.from_postgis(sql=inputgdfsql, con=connect_spatial())
-    combined_gdf = pd.concat([exst_gdf, input_gdf])
+    exst_gdf = GeoDataFrame.from_postgis(sql=exstgdfsql, con=connect_spatial())
+    input_gdf = GeoDataFrame.from_postgis(sql=inputgdfsql, con=connect_spatial())
+    res_gdf = GeoDataFrame.from_postgis(sql=res_parcel_data, con=connect_spatial())
 
-    res_gdf = gpd.GeoDataFrame.from_postgis(sql=res_parcel_data, con=connect_spatial())
-    combined_gdf['resdist'] = ToPointDistance(combined_gdf, res_gdf, 'manhattan')
-    input_gdf['resdist'] = combined_gdf.loc[combined_gdf[parcel_uniqueid].isin(input_gdf[parcel_uniqueid]), 'resdist']
-    exst_dist = combined_gdf.loc[combined_gdf[parcel_uniqueid].isin(exst_gdf[parcel_uniqueid]), 'resdist']
+    input_gdf['resdist'] = ToPointDistance(input_gdf, res_gdf, 'manhattan')
+    exst_dist = ToPointDistance(exst_gdf, res_gdf, 'manhattan')
     dist_mean = np.mean(exst_dist)
     dist_max = np.max(exst_dist)
     LinearRescale(input_gdf, 'resdist', 'res_suit', dist_max, dist_mean, 1, 9)
-    return pd.Series(input_gdf['res_suit'].values, index=input_gdf[parcel_uniqueid], name=lucode+'_residential')
+    return pd.Series(input_gdf['res_suit'].values,
+                     index=input_gdf[parcel_uniqueid],
+                     name=lucode+'_residential')
 
 
 def ProximityInstitution(inputgdfsql, exstgdfsql, cellsize, institutionwgtsql, lucode):
-    exst_gdf = gpd.GeoDataFrame.from_postgis(sql=exstgdfsql, con=connect_spatial())
-    input_gdf = gpd.GeoDataFrame.from_postgis(sql=inputgdfsql, con=connect_spatial())
-    combined_gdf = pd.concat([exst_gdf, input_gdf])
+    exst_gdf = GeoDataFrame.from_postgis(sql=exstgdfsql, con=connect_spatial())
+    input_gdf = GeoDataFrame.from_postgis(sql=inputgdfsql, con=connect_spatial())
+    institution_gdf = GeoDataFrame.from_postgis(sql=ins_parcel_data, con=connect_spatial())
 
-    institution_gdf = gpd.GeoDataFrame.from_postgis(sql=ins_parcel_data, con=connect_spatial())
-    combined_gdf['institutiondist'] = ToPointDistance(combined_gdf, institution_gdf, 'manhattan')
-    input_gdf['institutiondist'] = combined_gdf.loc[combined_gdf[parcel_uniqueid].isin(input_gdf[parcel_uniqueid]),
-                                                    'institutiondist']
-    exst_dist = combined_gdf.loc[combined_gdf[parcel_uniqueid].isin(exst_gdf[parcel_uniqueid]), 'institutiondist']
+    input_gdf['institutiondist'] = ToPointDistance(input_gdf, institution_gdf, 'manhattan')
+    exst_dist = ToPointDistance(exst_gdf, institution_gdf, 'manhattan')
     dist_mean = np.mean(exst_dist)
     dist_max = np.max(exst_dist)
     LinearRescale(input_gdf, 'institutiondist', 'institutiondist_suit', dist_max, dist_mean, 1, 9)
+
     input_gdf['institutionden'] = ZonalShapeDensity(institution_gdf, input_gdf, cellsize)
     RescaleByGammaDistribution(input_gdf, 'institutionden', 'institutionden_suit')
     institution_wdf = pd.read_sql(institutionwgtsql, connect_class(), index_col='class')
-    WeightedSum(input_gdf, ['institutiondist_suit', 'institutionden_suit'], institution_wdf, 'institution_suit')
-    return pd.Series(input_gdf['institution_suit'].values, index=input_gdf[parcel_uniqueid], name=lucode+'_institution')
+    WeightedSum(input_gdf, ['institutiondist_suit', 'institutionden_suit'],
+                institution_wdf, 'institution_suit')
+    return pd.Series(input_gdf['institution_suit'].values,
+                     index=input_gdf[parcel_uniqueid],
+                     name=lucode+'_institution')
 
 
 def ProximityCommercial(inputgdfsql, exstgdfsql, cellsize, commercialwgtsql, lucode):
-    exst_gdf = gpd.GeoDataFrame.from_postgis(sql=exstgdfsql, con=connect_spatial())
-    input_gdf = gpd.GeoDataFrame.from_postgis(sql=inputgdfsql, con=connect_spatial())
-    combined_gdf = pd.concat([exst_gdf, input_gdf])
+    exst_gdf = GeoDataFrame.from_postgis(sql=exstgdfsql, con=connect_spatial())
+    input_gdf = GeoDataFrame.from_postgis(sql=inputgdfsql, con=connect_spatial())
+    commercial_gdf = GeoDataFrame.from_postgis(sql=com_parcel_data, con=connect_spatial())
 
-    commercial_gdf = gpd.GeoDataFrame.from_postgis(sql=com_parcel_data, con=connect_spatial())
-    combined_gdf['commercialdist'] = ToPointDistance(combined_gdf, commercial_gdf, 'manhattan')
-    input_gdf['commercialdist'] = combined_gdf.loc[combined_gdf[parcel_uniqueid].isin(input_gdf[parcel_uniqueid]),
-                                                   'commercialdist']
-    exst_dist = combined_gdf.loc[combined_gdf[parcel_uniqueid].isin(exst_gdf[parcel_uniqueid]), 'commercialdist']
+    input_gdf['commercialdist'] = ToPointDistance(input_gdf, commercial_gdf, 'manhattan')
+    exst_dist = ToPointDistance(exst_gdf, commercial_gdf, 'manhattan')
     dist_mean = np.mean(exst_dist)
     dist_max = np.max(exst_dist)
     LinearRescale(input_gdf, 'commercialdist', 'commercialdist_suit', dist_max, dist_mean, 1, 9)
+
     input_gdf['commercialden'] = ZonalShapeDensity(commercial_gdf, input_gdf, cellsize)
     RescaleByGammaDistribution(input_gdf, 'commercialden', 'commercialden_suit')
     commercial_wdf = pd.read_sql(commercialwgtsql, connect_class(), index_col='class')
-    WeightedSum(input_gdf, ['commercialdist_suit', 'commercialden_suit'], commercial_wdf, 'commercial_suit')
-    return pd.Series(input_gdf['commercial_suit'].values, index=input_gdf[parcel_uniqueid], name=lucode+'_commercial')
+    WeightedSum(input_gdf, ['commercialdist_suit', 'commercialden_suit'],
+                commercial_wdf, 'commercial_suit')
+    return pd.Series(input_gdf['commercial_suit'].values,
+                     index=input_gdf[parcel_uniqueid],
+                     name=lucode+'_commercial')
 
 
 def ProximityDensity(inputgdfsql, exstgdfsql, cellsize, lucode):
-    input_gdf = gpd.GeoDataFrame.from_postgis(sql=inputgdfsql, con=connect_spatial())
+    input_gdf = GeoDataFrame.from_postgis(sql=inputgdfsql, con=connect_spatial())
 
-    exst_gdf = gpd.GeoDataFrame.from_postgis(sql=exstgdfsql, con=connect_spatial())
+    exst_gdf = GeoDataFrame.from_postgis(sql=exstgdfsql, con=connect_spatial())
     input_gdf['exstden'] = ZonalShapeDensity(exst_gdf, input_gdf, cellsize)
     input_gdf = RescaleByGammaDistribution(input_gdf, 'exstden', 'exstden_suit')
     return pd.Series(input_gdf['exstden_suit'].values, index=input_gdf[parcel_uniqueid], name=lucode+'_density')
 
 
 def ProximityInterstate(inputgdfsql, exstgdfsql, cellsize, lucode):
-    input_gdf = gpd.GeoDataFrame.from_postgis(sql=inputgdfsql, con=connect_spatial())
-    exst_gdf = gpd.GeoDataFrame.from_postgis(sql=exstgdfsql, con=connect_spatial())
-    combined_gdf = pd.concat([exst_gdf, input_gdf])
-
-    cntbnd_gdf = gpd.GeoDataFrame.from_postgis(sql=cntbnd_data, con=connect_spatial())
-    interstate_gdf = SelectByLocation(gpd.GeoDataFrame.from_postgis(sql=majhwys_onlyinterstate_data,
-                                                                    con=connect_spatial()), cntbnd_gdf)
+    input_gdf = GeoDataFrame.from_postgis(sql=inputgdfsql, con=connect_spatial())
+    exst_gdf = GeoDataFrame.from_postgis(sql=exstgdfsql, con=connect_spatial())
+    interstate_gdf = SelectByLocation(GeoDataFrame.from_postgis(sql=majhwys_onlyinterstate_data, con=connect_spatial()),
+                                      GeoDataFrame.from_postgis(sql=cntbnd_data, con=connect_spatial()))
     interstate_arr = ShapeToArray(interstate_gdf, cellsize)
-    combined_gdf['interstatedist'] = ToLineDistance(combined_gdf, interstate_gdf, cellsize, 'manhattan', interstate_arr)
-    input_gdf['interstatedist'] = combined_gdf.loc[combined_gdf[parcel_uniqueid].isin(input_gdf[parcel_uniqueid]),
-                                                   'interstatedist']
-    exst_series = combined_gdf.loc[combined_gdf[parcel_uniqueid].isin(exst_gdf[parcel_uniqueid]), 'interstatedist']
-    dist_mean = np.mean(exst_series)
-    dist_max = np.max(exst_series)
+
+    input_gdf['interstatedist'] = ToLineDistance(input_gdf, interstate_gdf, cellsize, 'manhattan', interstate_arr)
+    exst_dist = ToLineDistance(exst_gdf, interstate_gdf, cellsize, 'manhattan', interstate_arr)
+    dist_mean = np.mean(exst_dist)
+    dist_max = np.max(exst_dist)
     LinearRescale(input_gdf, 'interstatedist', 'interstatedist_suit', dist_max, dist_mean, 1, 9)
+
     return pd.Series(input_gdf['interstatedist_suit'].values,
-                     index=input_gdf[parcel_uniqueid], name=lucode+'_interstate')
+                     index=input_gdf[parcel_uniqueid],
+                     name=lucode+'_interstate')
 
 
 def UrbanFinal(paraoutput):
@@ -545,7 +543,7 @@ def UrbanFinal(paraoutput):
 
 
 def ClipModelRescale(inputgdfsql, modelname):
-    input_gdf = gpd.GeoDataFrame.from_postgis(sql=inputgdfsql, con=connect_spatial())
+    input_gdf = GeoDataFrame.from_postgis(sql=inputgdfsql, con=connect_spatial())
     clip_ddf = pd.read_sql("SELECT raster_name, no_data_value FROM def_clipmodel "
                            "WHERE model_name = '{}'".format(modelname), connect_class())
     clipmodel_data = PostgresRasterToArray(clip_ddf['raster_name'].values[0],
@@ -559,8 +557,8 @@ def ClipModelRescale(inputgdfsql, modelname):
 
 
 def ConversationConnectivity(inputgdfsql):
-    input_gdf = gpd.GeoDataFrame.from_postgis(sql=inputgdfsql, con=connect_spatial())
-    mgbank_gdf = gpd.GeoDataFrame.from_postgis(sql=mgbank_data, con=connect_spatial())
+    input_gdf = GeoDataFrame.from_postgis(sql=inputgdfsql, con=connect_spatial())
+    mgbank_gdf = GeoDataFrame.from_postgis(sql=mgbank_data, con=connect_spatial())
     input_gdf['mgbank'] = 1
     input_gdf.loc[input_gdf[parcel_uniqueid].isin(gpd.sjoin(input_gdf, mgbank_gdf)[parcel_uniqueid]), 'mgbank'] = 9
     greenway_ddf = pd.read_sql("SELECT raster_name, no_data_value FROM def_clipmodel WHERE model_name = 'greenway'",
@@ -576,9 +574,9 @@ def ConversationConnectivity(inputgdfsql):
 
 
 def HabitatReclassify(inputgdfsql, gfchabsuit):
-    input_gdf = gpd.GeoDataFrame.from_postgis(sql=inputgdfsql, con=connect_spatial())
-    cntbnd_gdf = gpd.GeoDataFrame.from_postgis(sql=cntbnd_data, con=connect_spatial())
-    flma_gdf = SelectByLocation(gpd.GeoDataFrame.from_postgis(sql=flma_data, con=connect_spatial()), cntbnd_gdf)
+    input_gdf = GeoDataFrame.from_postgis(sql=inputgdfsql, con=connect_spatial())
+    cntbnd_gdf = GeoDataFrame.from_postgis(sql=cntbnd_data, con=connect_spatial())
+    flma_gdf = SelectByLocation(GeoDataFrame.from_postgis(sql=flma_data, con=connect_spatial()), cntbnd_gdf)
     WithinDistance(250, input_gdf, parcel_uniqueid, flma_gdf, 'flma_suit')
     input_gdf.loc[input_gdf['flma_suit'] == 1, 'flma'] = 9
     input_gdf.loc[input_gdf['flma_suit'] == 0, 'flma'] = 1
@@ -615,8 +613,8 @@ def ConservationFinal(paraoutput):
 
 
 def SoilProduction(inputgdfsql):
-    input_gdf = gpd.GeoDataFrame.from_postgis(sql=inputgdfsql, con=connect_spatial())
-    rcrp_gdf = gpd.GeoDataFrame.from_postgis(sql=rowcrops_data, con=connect_spatial())
+    input_gdf = GeoDataFrame.from_postgis(sql=inputgdfsql, con=connect_spatial())
+    rcrp_gdf = GeoDataFrame.from_postgis(sql=rowcrops_data, con=connect_spatial())
     joint_geodf = gpd.sjoin(input_gdf, rcrp_gdf)
     selected_input = pd.DataFrame.copy(input_gdf.loc[input_gdf.index.to_series().isin(joint_geodf.index.values), :])
     selected_fsaid = pd.DataFrame.copy(rcrp_gdf.loc[rcrp_gdf.index.to_series().isin(joint_geodf.index_right.values), :])
@@ -633,8 +631,8 @@ def SoilProduction(inputgdfsql):
 def PrimeFarmland(inputgdfsql, nrcsprimefarmsuitsql, agparcelprimefarmsuitsql):
     inputgeomix = inputgdfsql.find('geom')
     inputdorgdfsql = inputgdfsql[:inputgeomix] + lucodefield + ', ' + inputgdfsql[inputgeomix:]
-    input_gdf = gpd.GeoDataFrame.from_postgis(sql=inputdorgdfsql, con=connect_spatial())
-    primefarm_gdf = gpd.GeoDataFrame.from_postgis(sql=primefarm_data, con=connect_spatial())
+    input_gdf = GeoDataFrame.from_postgis(sql=inputdorgdfsql, con=connect_spatial())
+    primefarm_gdf = GeoDataFrame.from_postgis(sql=primefarm_data, con=connect_spatial())
 
     input_gdf['geom'] = input_gdf.centroid
     primefarm_sdf = pd.read_sql(nrcsprimefarmsuitsql, connect_class())
@@ -649,8 +647,8 @@ def PrimeFarmland(inputgdfsql, nrcsprimefarmsuitsql, agparcelprimefarmsuitsql):
 
 
 def RowCropsMarket(inputgdfsql):
-    input_gdf = gpd.GeoDataFrame.from_postgis(sql=inputgdfsql, con=connect_spatial())
-    city_gdf = gpd.GeoDataFrame.from_postgis(sql=citypop_data, con=connect_spatial())
+    input_gdf = GeoDataFrame.from_postgis(sql=inputgdfsql, con=connect_spatial())
+    city_gdf = GeoDataFrame.from_postgis(sql=citypop_data, con=connect_spatial())
     citypop_ddf = pd.read_sql("SELECT city_size, pop_lower, pop_upper FROM def_citybypopsize", connect_class())
     large_lower, large_upper = citypop_ddf.loc[citypop_ddf['city_size'] == 'large',
                                                ['pop_lower', 'pop_upper']].values[0]
@@ -674,19 +672,19 @@ def RowCropsMarket(inputgdfsql):
     WeightedSum(input_gdf, ['large_dist', 'medium_dist', 'small_dist', 'mini_dist'], city_wdf, 'marketdist')
     LinearRescale(input_gdf, 'marketdist', 'marketsuit', input_gdf['marketdist'].values.max(),
                   input_gdf['marketdist'].values.min(), 1, 9)
-    rowcrops_gdf = gpd.GeoDataFrame.from_postgis(sql=rowcrops_data, con=connect_spatial())
+    rowcrops_gdf = GeoDataFrame.from_postgis(sql=rowcrops_data, con=connect_spatial())
     selected_input = SelectByLocation(input_gdf, rowcrops_gdf)
     input_gdf.loc[input_gdf[parcel_uniqueid].isin(selected_input[parcel_uniqueid]), 'marketsuit'] = 9
     return pd.Series(input_gdf['marketsuit'].values, index=input_gdf[parcel_uniqueid], name='rcrp_market')
 
 
 def ProductTransport(inputgdfsql):
-    input_gdf = gpd.GeoDataFrame.from_postgis(sql=inputgdfsql, con=connect_spatial())
-    cntbnd_gdf = gpd.GeoDataFrame.from_postgis(sql=cntbnd_data, con=connect_spatial())
-    rcrp_gdf = gpd.GeoDataFrame.from_postgis(sql=rowcrops_data, con=connect_spatial())
-    majrds_gdf = SelectByLocation(gpd.GeoDataFrame.from_postgis(sql=majrds_wointerstate_data, con=connect_spatial()),
+    input_gdf = GeoDataFrame.from_postgis(sql=inputgdfsql, con=connect_spatial())
+    cntbnd_gdf = GeoDataFrame.from_postgis(sql=cntbnd_data, con=connect_spatial())
+    rcrp_gdf = GeoDataFrame.from_postgis(sql=rowcrops_data, con=connect_spatial())
+    majrds_gdf = SelectByLocation(GeoDataFrame.from_postgis(sql=majrds_wointerstate_data, con=connect_spatial()),
                                   cntbnd_gdf)
-    majhwys_gdf = SelectByLocation(gpd.GeoDataFrame.from_postgis(sql=majhwys_onlyinterstate_data, con=connect_spatial()),
+    majhwys_gdf = SelectByLocation(GeoDataFrame.from_postgis(sql=majhwys_onlyinterstate_data, con=connect_spatial()),
                                    cntbnd_gdf)
     input_gdf['majrdsdist'] = ToLineDistance(input_gdf, majrds_gdf, cell_size, 'euclidean')
     input_gdf['majhwysdist'] = ToLineDistance(input_gdf, majhwys_gdf, cell_size, 'euclidean')
@@ -704,9 +702,9 @@ def ProductTransport(inputgdfsql):
 def CropLandValue(inputgdfsql):
     inputgeomix = inputgdfsql.find('geom')
     inputlvgdfsql = inputgdfsql[:inputgeomix] + landvaluefield + ', ' + inputgdfsql[inputgeomix:]
-    input_gdf = gpd.GeoDataFrame.from_postgis(sql=inputlvgdfsql, con=connect_spatial())
+    input_gdf = GeoDataFrame.from_postgis(sql=inputlvgdfsql, con=connect_spatial())
     input_gdf['dolperacre'] = input_gdf['jv'] / (input_gdf.area / sqmtoacre)
-    rcrpparcel_gdf = gpd.GeoDataFrame.from_postgis(sql=cropland_parcel_data, con=connect_spatial())
+    rcrpparcel_gdf = GeoDataFrame.from_postgis(sql=cropland_parcel_data, con=connect_spatial())
     rcrpparcel_gdf['dolperacre'] = rcrpparcel_gdf['jv'] / (rcrpparcel_gdf.area / sqmtoacre)
     rcrpparcel_grouped = rcrpparcel_gdf.groupby('doruc')
     rcrpmean = rcrpparcel_grouped['dolperacre'].agg(np.mean)
@@ -732,7 +730,7 @@ def CropLandValue(inputgdfsql):
 def AgricultureLandUse(inputgeodfsql, agtype):
     inputgeomix = inputgeodfsql.find('geom')
     inputdorgdfsql = inputgeodfsql[:inputgeomix] + lucodefield + ', ' + inputgeodfsql[inputgeomix:]
-    input_gdf = gpd.GeoDataFrame.from_postgis(sql=inputdorgdfsql, con=connect_spatial())
+    input_gdf = GeoDataFrame.from_postgis(sql=inputdorgdfsql, con=connect_spatial())
     aglanduse_sdf = pd.read_sql(
         "SELECT class, suit_score FROM suit_agmodel_bycase "
         "WHERE land_use_type = '{}' AND model = 'land use'".format(agtype),
@@ -749,12 +747,12 @@ def AgricultureLandUse(inputgeodfsql, agtype):
 
 
 def LivestockOpenWater(inputgeodfsql, hililstk):
-    input_gdf = gpd.GeoDataFrame.from_postgis(sql=inputgeodfsql, con=connect_spatial())
-    cntbnd_gdf = gpd.GeoDataFrame.from_postgis(sql=cntbnd_data, con=connect_spatial())
+    input_gdf = GeoDataFrame.from_postgis(sql=inputgeodfsql, con=connect_spatial())
+    cntbnd_gdf = GeoDataFrame.from_postgis(sql=cntbnd_data, con=connect_spatial())
     flowline_gdf = SelectByLocation(
-        gpd.GeoDataFrame.from_postgis(sql=nhdflowline_data, con=connect_spatial()), cntbnd_gdf)
+        GeoDataFrame.from_postgis(sql=nhdflowline_data, con=connect_spatial()), cntbnd_gdf)
     waterbody_gdf = SelectByLocation(
-        gpd.GeoDataFrame.from_postgis(sql=nhdwaterbody_data, con=connect_spatial()), cntbnd_gdf)
+        GeoDataFrame.from_postgis(sql=nhdwaterbody_data, con=connect_spatial()), cntbnd_gdf)
     input_gdf['flowlinedist'] = ToLineDistance(input_gdf, flowline_gdf, cell_size, 'euclidean')
     input_gdf['waterbodydist'] = ToPolygonDistance(input_gdf, waterbody_gdf, cell_size, 'euclidean')
     flowline_suit = "SELECT lower, upper, suit_score FROM suit_agmodel_byinterval " \
@@ -771,7 +769,7 @@ def LivestockOpenWater(inputgeodfsql, hililstk):
 
 
 def AgricultureAquiferRecharge(inputgeodfsql, agtype):
-    input_gdf = gpd.GeoDataFrame.from_postgis(sql=inputgeodfsql, con=connect_spatial())
+    input_gdf = GeoDataFrame.from_postgis(sql=inputgeodfsql, con=connect_spatial())
     rechrgnodata = pd.read_sql(
         "SELECT no_data_value FROM def_clipmodel WHERE raster_name = '{}'".format(rechargeraster),
         connect_class()).iloc[0, 0]
@@ -788,9 +786,9 @@ def AgricultureAquiferRecharge(inputgeodfsql, agtype):
 
 
 def AgricultureSoil(inputgdfsql, agtype):
-    input_gdf = gpd.GeoDataFrame.from_postgis(sql=inputgdfsql, con=connect_spatial())
+    input_gdf = GeoDataFrame.from_postgis(sql=inputgdfsql, con=connect_spatial())
     input_gdf['geom'] = input_gdf.centroid
-    soil_gdf = gpd.GeoDataFrame.from_postgis(sql=soil_data, con=connect_spatial())
+    soil_gdf = GeoDataFrame.from_postgis(sql=soil_data, con=connect_spatial())
     soildrain_sdf = pd.read_sql(
         "SELECT class, suit_score from suit_agmodel_bycase "
         "WHERE land_use_type = '{}' AND model = 'soil drainage'".format(agtype), connect_class())
@@ -806,10 +804,10 @@ def AgricultureSoil(inputgdfsql, agtype):
 
 
 def LivestockExtUrban(inputgeodfsql):
-    input_gdf = gpd.GeoDataFrame.from_postgis(sql=inputgeodfsql, con=connect_spatial())
-    exturb_gdf = gpd.GeoDataFrame.from_postgis(sql=exturb_parcel_data, con=connect_spatial())
+    input_gdf = GeoDataFrame.from_postgis(sql=inputgeodfsql, con=connect_spatial())
+    exturb_gdf = GeoDataFrame.from_postgis(sql=exturb_parcel_data, con=connect_spatial())
     exturb_gdf['geom'] = exturb_gdf.centroid
-    lshiparcel_gdf = gpd.GeoDataFrame.from_postgis(sql=intensag_parcel_data, con=connect_spatial())
+    lshiparcel_gdf = GeoDataFrame.from_postgis(sql=intensag_parcel_data, con=connect_spatial())
     lshiparcel_gdf['exturbdist'] = ToPointDistance(lshiparcel_gdf, exturb_gdf, 'euclidean')
     input_gdf['exturbdist'] = ToPointDistance(input_gdf, exturb_gdf, 'euclidean')
     dist_mean = np.mean(lshiparcel_gdf['exturbdist'])
@@ -819,8 +817,8 @@ def LivestockExtUrban(inputgeodfsql):
 
 
 def AgricultureMarket(inputgeodfsql, agtype, markettype):
-    input_gdf = gpd.GeoDataFrame.from_postgis(sql=inputgeodfsql, con=connect_spatial())
-    city_gdf = gpd.GeoDataFrame.from_postgis(sql=citypop_data, con=connect_spatial())
+    input_gdf = GeoDataFrame.from_postgis(sql=inputgeodfsql, con=connect_spatial())
+    city_gdf = GeoDataFrame.from_postgis(sql=citypop_data, con=connect_spatial())
     citypopdf = pd.read_sql("SELECT city_size, pop_lower, pop_upper FROM def_citybypopsize", connect_class())
     if markettype == 'local':
         lvl1, lvl2, lvl1dist, lvl2dist, mktname = ('small', 'mini', 'smalldist', 'minidist', 'local market')
@@ -835,7 +833,7 @@ def AgricultureMarket(inputgeodfsql, agtype, markettype):
                 'specialty farm': ['sfrm', sfrm_parcel_data],
                 'nursery': ['nsry', nsry_parcel_data],
                 'timber': ['tmbr', tmbr_parcel_data]}
-    agparcel_gdf = gpd.GeoDataFrame.from_postgis(sql=agludict[agtype][1], con=connect_spatial())
+    agparcel_gdf = GeoDataFrame.from_postgis(sql=agludict[agtype][1], con=connect_spatial())
     agparcel_gdf[lvl1dist] = ToPointDistance(agparcel_gdf, lvl1city_gdf, 'euclidean')
     agparcel_gdf[lvl2dist] = ToPointDistance(agparcel_gdf, lvl2city_gdf, 'euclidean')
     lvl1_max = np.max(agparcel_gdf[lvl1dist])
@@ -855,10 +853,10 @@ def AgricultureMarket(inputgeodfsql, agtype, markettype):
 
 
 def AgricultureMajorRoads(inputgeodfsql, agtype):
-    input_gdf = gpd.GeoDataFrame.from_postgis(sql=inputgeodfsql, con=connect_spatial())
-    cntbnd_gdf = gpd.GeoDataFrame.from_postgis(sql=cntbnd_data, con=connect_spatial())
+    input_gdf = GeoDataFrame.from_postgis(sql=inputgeodfsql, con=connect_spatial())
+    cntbnd_gdf = GeoDataFrame.from_postgis(sql=cntbnd_data, con=connect_spatial())
     majrds_gdf = SelectByLocation(
-        gpd.GeoDataFrame.from_postgis(sql=majrds_data, con=connect_spatial()), cntbnd_gdf)
+        GeoDataFrame.from_postgis(sql=majrds_data, con=connect_spatial()), cntbnd_gdf)
     majrds_arr = ShapeToArray(majrds_gdf, cell_size)
     input_gdf['majrdsdist'] = ToLineDistance(input_gdf, majrds_gdf, cell_size, 'manhattan', majrds_arr)
     agludict = {'livestock high intensity': ['lshi', lshi_parcel_data],
@@ -866,7 +864,7 @@ def AgricultureMajorRoads(inputgeodfsql, agtype):
                 'specialty farm': ['sfrm', sfrm_parcel_data],
                 'nursery': ['nsry', nsry_parcel_data],
                 'timber': ['tmbr', tmbr_parcel_data]}
-    agparcel_gdf = gpd.GeoDataFrame.from_postgis(sql=agludict[agtype][1], con=connect_spatial())
+    agparcel_gdf = GeoDataFrame.from_postgis(sql=agludict[agtype][1], con=connect_spatial())
     agparcel_gdf['majrdsdist'] = ToLineDistance(agparcel_gdf, majrds_gdf, cell_size, 'manhattan', majrds_arr)
     distmax = np.max(agparcel_gdf['majrdsdist'])
     distmean = np.mean(agparcel_gdf['majrdsdist'])
@@ -878,7 +876,7 @@ def AgricultureMajorRoads(inputgeodfsql, agtype):
 def AgricultureLandValue(inputgdfsql, agtype):
     inputgeomix = inputgdfsql.find('geom')
     inputlvgdfsql = inputgdfsql[:inputgeomix] + landvaluefield + ', ' + inputgdfsql[inputgeomix:]
-    input_gdf = gpd.GeoDataFrame.from_postgis(sql=inputlvgdfsql, con=connect_spatial())
+    input_gdf = GeoDataFrame.from_postgis(sql=inputlvgdfsql, con=connect_spatial())
     input_gdf['dolperacre'] = input_gdf[landvaluefield] / (input_gdf.area / sqmtoacre)
     agludict = {'livestock high intensity': ['lshi', lshi_parcel_data],
                 'livestock low intensity': ['lsli', lsli_parcel_data],
@@ -887,7 +885,7 @@ def AgricultureLandValue(inputgdfsql, agtype):
                 'timber': ['tmbr', tmbr_parcel_data]}
     aggeomix = agludict[agtype][1].find('geom')
     aglvgdfsql = agludict[agtype][1][:aggeomix] + landvaluefield + ', ' + agludict[agtype][1][aggeomix:]
-    agparcel_gdf = gpd.GeoDataFrame.from_postgis(sql=aglvgdfsql, con=connect_spatial())
+    agparcel_gdf = GeoDataFrame.from_postgis(sql=aglvgdfsql, con=connect_spatial())
     agparcel_gdf['dolperacre'] = agparcel_gdf[landvaluefield] / (agparcel_gdf.area / sqmtoacre)
     jvmax = np.max(agparcel_gdf['dolperacre'])
     jvmean = np.mean(agparcel_gdf['dolperacre'])
@@ -897,16 +895,16 @@ def AgricultureLandValue(inputgdfsql, agtype):
 
 
 def SpecialtyOpenWater(inputgdfsql):
-    input_gdf = gpd.GeoDataFrame.from_postgis(sql=inputgdfsql, con=connect_spatial())
-    cntbnd_gdf = gpd.GeoDataFrame.from_postgis(sql=cntbnd_data, con=connect_spatial())
+    input_gdf = GeoDataFrame.from_postgis(sql=inputgdfsql, con=connect_spatial())
+    cntbnd_gdf = GeoDataFrame.from_postgis(sql=cntbnd_data, con=connect_spatial())
     flowline_gdf = SelectByLocation(
-        gpd.GeoDataFrame.from_postgis(sql=nhdflowline_data, con=connect_spatial()), cntbnd_gdf)
+        GeoDataFrame.from_postgis(sql=nhdflowline_data, con=connect_spatial()), cntbnd_gdf)
     waterbodyix = nhdwaterbody_data.find('DESCRIPT')
     waterbodysql = nhdwaterbody_data[:waterbodyix] + \
         'areasqkm >= {} AND '.format(10 * (sqmtoacre / 1000000)) + \
         nhdwaterbody_data[waterbodyix:]
     waterbody_gdf = SelectByLocation(
-        gpd.GeoDataFrame.from_postgis(sql=waterbodysql, con=connect_spatial()), cntbnd_gdf)
+        GeoDataFrame.from_postgis(sql=waterbodysql, con=connect_spatial()), cntbnd_gdf)
     input_gdf['flowlinedist'] = ToLineDistance(input_gdf, flowline_gdf, cell_size, 'euclidean')
     input_gdf['waterbodydist'] = ToPolygonDistance(input_gdf, waterbody_gdf, cell_size, 'euclidean')
     input_gdf['gfchabowdist'] = ToRasterDistance(input_gdf, gfchabraster, rasterconn, gfchab_ow_value, 'euclidean')
@@ -919,10 +917,10 @@ def SpecialtyOpenWater(inputgdfsql):
 
 
 def SpecialtyProcessingPlant(inputgdfsql):
-    input_gdf = gpd.GeoDataFrame.from_postgis(sql=inputgdfsql, con=connect_spatial())
-    fdprcss_gdf = gpd.GeoDataFrame.from_postgis(sql=foodprocess_parcel_data, con=connect_spatial())
+    input_gdf = GeoDataFrame.from_postgis(sql=inputgdfsql, con=connect_spatial())
+    fdprcss_gdf = GeoDataFrame.from_postgis(sql=foodprocess_parcel_data, con=connect_spatial())
     orchardsql = "SELECT geom FROM vector.parcel2015_orange WHERE doruc ='066'"
-    orchard_gdf = gpd.GeoDataFrame.from_postgis(sql=orchardsql, con=connect_spatial())
+    orchard_gdf = GeoDataFrame.from_postgis(sql=orchardsql, con=connect_spatial())
     orchard_gdf['fdprcssdist'] = ToPointDistance(orchard_gdf, fdprcss_gdf, 'euclidean')
     distmax = np.max(orchard_gdf['fdprcssdist'])
     distmean = np.mean(orchard_gdf['fdprcssdist'])
@@ -934,7 +932,7 @@ def SpecialtyProcessingPlant(inputgdfsql):
 def AgricultureParcelSize(inputgdfsql, agtype):
     inputgeomix = inputgdfsql.find('geom')
     inputlugdfsql = inputgdfsql[:inputgeomix] + lucodefield + ', ' + inputgdfsql[inputgeomix:]
-    input_gdf = gpd.GeoDataFrame.from_postgis(sql=inputlugdfsql, con=connect_spatial())
+    input_gdf = GeoDataFrame.from_postgis(sql=inputlugdfsql, con=connect_spatial())
     agludict = {'nursery': 'nsry',
                 'timber': 'tmbr'}
     outname = agludict[agtype] + '_parsize'
