@@ -87,9 +87,10 @@ sfrm_parcel_data = ParcelDefSQL(parcel, 'specialty farm')
 nsry_parcel_data = ParcelDefSQL(parcel, 'nursery')
 tmbr_parcel_data = ParcelDefSQL(parcel, 'timber')
 foodprocess_parcel_data = ParcelDefSQL(parcel, 'food processing')
-infill_parcel_data = ParcelDefSQL(parcel, 'infill')
-redev_parcel_data = ParcelDefSQL(parcel, 'redevelopment') + " AND effyrblt < 1990"  # effective year less than 1990
-grnfld_parcel_data = ParcelDefSQL(parcel, 'greenfield')
+infill_parcel_data = ParcelDefSQL(parcel, 'infill', parcel_uniqueid)
+redev_parcel_data = ParcelDefSQL(parcel, 'redevelopment', parcel_uniqueid) \
+                    + " AND effyrblt < 1990"  # effective built year less than 1990
+grnfld_parcel_data = ParcelDefSQL(parcel, 'greenfield', parcel_uniqueid)
 
 airport_noise_data = ("SELECT * FROM vector.airports_2015 "
                       "WHERE COUNTY = '{}' AND "
