@@ -130,7 +130,10 @@ def WithinDistance(distance, inputgeodf, inputuniqueid, sourcegeodf, sourcename)
     :rtype: GeoDataFrame
     """
     inputgeodf.loc[:, sourcename] = 0
-    inputwithin = gpd.sjoin(inputgeodf, sourcegeodf.assign(geom=sourcegeodf.buffer(distance)), how='inner', op='intersects')[inputuniqueid]
+    inputwithin = gpd.sjoin(
+        inputgeodf, sourcegeodf.assign(geom=sourcegeodf.buffer(distance)),
+        how='inner', op='intersects'
+    )[inputuniqueid]
     inputgeodf.loc[inputgeodf[inputuniqueid].isin(inputwithin), sourcename] = 1
     return inputgeodf
 

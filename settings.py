@@ -32,9 +32,11 @@ lucisAllLuCode = {**lucisAgLuCode, **lucisConLuCode, **lucisUrbLuCode}
 
 noise_barrier_def = "SELECT type, distance FROM def_noisebarrier"
 
-rasterconn = "PG:host='{}' port='5432' " \
-             "dbname='{}' user='{}' password='{}' " \
-             "schema='raster' mode='2'".format(db_host, db_name_spatial, db_user, db_password)
+rasterconn = (
+    "PG:host='{}' port='5432' " 
+    "dbname='{}' user='{}' password='{}' " 
+    "schema='raster' mode='2'"
+).format(db_host, db_name_spatial, db_user, db_password)
 
 
 def connect_spatial():
@@ -46,22 +48,30 @@ def connect_class():
 
 
 def ParcelDefSQL(parceltable, parcelclass, fieldnames=None):
-    dorucseries = pd.read_sql(("SELECT doruc FROM def_parcel "
-                               "WHERE classification = '{}'").format(parcelclass),
-                              con=connect_class())
-
+    if isinstance(parcelclass, list):
+        dorucseries = pd.read_sql(
+            sql="SELECT doruc FROM def_parcel "
+                "WHERE classification IN {}".format("('" + "', '".join(parcelclass) + "')"),
+            con=connect_class()
+        )
+    else:
+        dorucseries = pd.read_sql(
+            sql="SELECT doruc FROM def_parcel WHERE classification = '{}'".format(parcelclass),
+            con=connect_class()
+        )
     if fieldnames is None:
-        return ("SELECT geom FROM {} "
-                "WHERE doruc IN {}").format(parceltable, "('" + "', '".join(dorucseries.doruc.values) + "')")
+        return (
+            "SELECT geom FROM {} WHERE doruc IN {}"
+        ).format(parceltable, "('" + "', '".join(dorucseries.doruc.values) + "')")
     else:
         if isinstance(fieldnames, list):
-            return ("SELECT {}, geom FROM {} "
-                    "WHERE doruc IN {}").format(', '.join(fieldnames), parceltable,
-                                                "('" + "', '".join(dorucseries.doruc.values) + "')")
+            return (
+                "SELECT {}, geom FROM {} WHERE doruc IN {}"
+            ).format(', '.join(fieldnames), parceltable, "('" + "', '".join(dorucseries.doruc.values) + "')")
         else:
-            return ("SELECT {}, geom FROM {} "
-                    "WHERE doruc IN {}").format(fieldnames, parceltable,
-                                                "('" + "', '".join(dorucseries.doruc.values) + "')")
+            return (
+                "SELECT {}, geom FROM {} WHERE doruc IN {}"
+            ).format(fieldnames, parceltable, "('" + "', '".join(dorucseries.doruc.values) + "')")
 
 
 parcel = 'vector.parcel2015_orange'     # county level data
@@ -88,42 +98,61 @@ nsry_parcel_data = ParcelDefSQL(parcel, 'nursery')
 tmbr_parcel_data = ParcelDefSQL(parcel, 'timber')
 foodprocess_parcel_data = ParcelDefSQL(parcel, 'food processing')
 infill_parcel_data = ParcelDefSQL(parcel, 'infill', parcel_uniqueid)
-redev_parcel_data = ParcelDefSQL(parcel, 'redevelopment', parcel_uniqueid) \
-                    + " AND effyrblt < 1990"  # effective built year less than 1990
+redev_parcel_data = ParcelDefSQL(parcel, 'redevelopment', parcel_uniqueid) + \
+                    " AND effyrblt < 1990"  # effective built year less than 1990
 grnfld_parcel_data = ParcelDefSQL(parcel, 'greenfield', parcel_uniqueid)
 
-airport_noise_data = ("SELECT * FROM vector.airports_2015 "
-                      "WHERE COUNTY = '{}' AND "
-                      "(ISINTERNAT = 'Y' OR HASMILLAND = 'Y' OR HASTOWER = 'Y')").format(studycounty)
+lucodeix = infill_parcel_data.find(lucodefield)
+alldev_parcel_data = (
+        infill_parcel_data[:lucodeix] + "(" + infill_parcel_data[lucodeix:] + ") OR (" +
+        redev_parcel_data[lucodeix:] + ") OR (" +
+        grnfld_parcel_data[lucodeix:] + ")"
+)
+
+airport_noise_data = (
+    "SELECT * FROM vector.airports_2015 "
+    "WHERE COUNTY = '{}' AND "
+    "(ISINTERNAT = 'Y' OR HASMILLAND = 'Y' OR HASTOWER = 'Y')"
+).format(studycounty)
 
 majrds_wointerstate_data = "SELECT geom FROM vector.majrds_oct16 WHERE FUNCLASS NOT IN ('1', '11')"
 majhwys_onlyinterstate_data = "SELECT geom FROM vector.majhwys_oct16 WHERE FUNCLASS IN ('1', '11')"
 rail_noise_data = "SELECT geom FROM vector.rails_2016 WHERE NET in ('A', 'R', 'X')"
 railxing_noise_data = "SELECT geom FROM vector.rail_xing_2015"
 soil_data = "SELECT DRAINAGECL, CORCON, CORSTEEL, geom FROM vector.nrcs_soils_nov15_orange"  # county level data
-floodsoil_data = "SELECT flodfreqdc, geom FROM vector.nrcs_soils_nov15_orange" # county level data
+floodsoil_data = "SELECT flodfreqdc, geom FROM vector.nrcs_soils_nov15_orange"  # county level data
 sewagetrt_data = "SELECT geom FROM vector.sewtrt"
 
 superfund_data = "SELECT geom FROM vector.epasuperfund_jun17 WHERE COUNTY = '{}'".format(studycounty)
 statehazsite_data = "SELECT geom FROM vector.state_cleanup_sites_oct17 WHERE COUNTY = '{}'".format(studycounty)
 
-highschool_data = ("SELECT geom FROM vector.gc_schools_sep17 "
-                   "WHERE type IN ('COMBINATION JR. HIGH & SENIOR HIGH', 'SENIOR HIGH') "
-                   "AND low_grade IN ('10', '11', '12')")
+highschool_data = (
+    "SELECT geom FROM vector.gc_schools_sep17 "
+    "WHERE type IN ('COMBINATION JR. HIGH & SENIOR HIGH', 'SENIOR HIGH') "
+    "AND low_grade IN ('10', '11', '12')"
+)
 
-middleschool_data = ("SELECT geom FROM vector.gc_schools_sep17 "
-                     "WHERE high_grade IN ('07', '08')")
+middleschool_data = (
+    "SELECT geom FROM vector.gc_schools_sep17 "
+    "WHERE high_grade IN ('07', '08')"
+)
 
-primaryschool_data = ("SELECT geom FROM vector.gc_schools_sep17 "
-                      "WHERE high_grade IN ('01', '02', '03', '04', '05', '06', 'PK', 'KG')")
+primaryschool_data = (
+    "SELECT geom FROM vector.gc_schools_sep17 "
+    "WHERE high_grade IN ('01', '02', '03', '04', '05', '06', 'PK', 'KG')"
+)
 
-fireresque_data = ("SELECT geom FROM vector.gc_firestat_feb13 "
-                   "WHERE county = '{}' AND "
-                   "type IN ('FIRE STATION', 'RESCUE STATION', 'FIRE STATION AND RESCUE STATION')").format(studycounty)
+fireresque_data = (
+    "SELECT geom FROM vector.gc_firestat_feb13 "
+    "WHERE county = '{}' AND "
+    "type IN ('FIRE STATION', 'RESCUE STATION', 'FIRE STATION AND RESCUE STATION')"
+).format(studycounty)
 
-police_data = ("SELECT geom FROM vector.gc_lawenforce_dec12 "
-               "WHERE COUNTY = '{}' AND "
-               "type IN ('FDLE', 'SHERIFF\''S OFFICE', 'POLICE DEPARTMENT', 'LAW ENFORCEMENT')").format(studycounty)
+police_data = (
+    "SELECT geom FROM vector.gc_lawenforce_dec12 "
+    "WHERE COUNTY = '{}' AND "
+    "type IN ('FDLE', 'SHERIFF\''S OFFICE', 'POLICE DEPARTMENT', 'LAW ENFORCEMENT')"
+).format(studycounty)
 
 hospital_data = "SELECT geom FROM vector.gc_hospitals_sep17 WHERE COUNTY = '{}'".format(studycounty)
 
@@ -133,20 +162,25 @@ flma_data = "SELECT geom FROM vector.flma_jan18"
 parks_data = "SELECT geom FROM vector.gc_parks_sep17 WHERE COUNTY = '{}'".format(studycounty)
 nhdwaterbody_data = "SELECT geom FROM vector.nhd24waterbody_feb16 WHERE DESCRIPT IN ('LAKE/POND', 'RESERVOIR')"
 
-prison_data = ("SELECT geom FROM vector.gc_correctional_sep17 "
-               "WHERE type IN ('CORRECTIONAL INSTITUTIONS', 'JAIL', 'FEDERAL CORRECTIONAL INSTITUTION')")
+prison_data = (
+    "SELECT geom FROM vector.gc_correctional_sep17 "
+    "WHERE type IN ('CORRECTIONAL INSTITUTIONS', 'JAIL', 'FEDERAL CORRECTIONAL INSTITUTION')"
+)
 
-plss_data = ("SELECT geom FROM vector.plss "
-             "WHERE LOWER(county) = '{}' AND "
-             "DESCRIPT ~ '^[0-9]'").format(studycounty.lower())
+plss_data = (
+    "SELECT geom FROM vector.plss "
+    "WHERE LOWER(county) = '{}' AND DESCRIPT ~ '^[0-9]'"
+).format(studycounty.lower())
 
 watertreat_data = "SELECT geom FROM vector.wtreat"
+
 mgbank_data = "SELECT geom FROM vector.mgbank_apr17"
 
-rowcrops_data = ("SELECT land_cap, geom FROM vector.fsaid5_2016_alg "
-                 "WHERE LOWER(county) = '{}' AND "
-                 "crop2016 NOT IN "
-                 "('Aquaculture', 'Citrus', 'Greenhouse/Nursery', 'Livestock')").format(studycounty.lower())
+rowcrops_data = (
+    "SELECT land_cap, geom FROM vector.fsaid5_2016_alg "
+    "WHERE LOWER(county) = '{}' AND "
+    "crop2016 NOT IN ('Aquaculture', 'Citrus', 'Greenhouse/Nursery', 'Livestock')"
+).format(studycounty.lower())
 
 primefarm_data = "SELECT frmlndcl, geom FROM vector.nrcs_soils_nov15_orange"
 
@@ -154,10 +188,12 @@ primefarm_data = "SELECT frmlndcl, geom FROM vector.nrcs_soils_nov15_orange"
 # 25 - city; 43 - town
 # pcicbsa10: 2010 Census metropolitan or micropolitan statistical area principal city indicator
 # Y - Is a principal city of a CBSA
-citypop_data = ("SELECT pop2010, geom FROM vector.cenplace2010_aug11 "
-                "WHERE pcicbsa10 = 'Y' OR lsad10 IN ('25', '43')")
+citypop_data = (
+    "SELECT pop2010, geom FROM vector.cenplace2010_aug11 "
+    "WHERE pcicbsa10 = 'Y' OR lsad10 IN ('25', '43')"
+)
 
-nhdflowline_data = ("SELECT geom FROM vector.nhd24flowline_dec17 "
-                    "WHERE descript IN ('COASTLINE', 'STREAM/RIVER', 'UNDERGROUND CONDUIT')")
-
-
+nhdflowline_data = (
+    "SELECT geom FROM vector.nhd24flowline_dec17 "
+    "WHERE descript IN ('COASTLINE', 'STREAM/RIVER', 'UNDERGROUND CONDUIT')"
+)

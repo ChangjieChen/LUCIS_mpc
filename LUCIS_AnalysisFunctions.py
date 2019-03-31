@@ -8,29 +8,46 @@ def PhysicalNoiseQuality(inputgdfsql, noisebarriersql, lucode):
 
     input_gdf = GeoDataFrame.from_postgis(sql=inputgdfsql, con=connect_spatial())
     airport_gdf = GeoDataFrame.from_postgis(sql=airport_noise_data, con=connect_spatial())
-    industry_gdf = GeoDataFrame.from_postgis(sql="".join(ind_parcel_data.split(parcel_uniqueid+', ')),
-                                                 con=connect_spatial())
+    industry_gdf = GeoDataFrame.from_postgis(
+        sql="".join(ind_parcel_data.split(parcel_uniqueid+', ')),
+        con=connect_spatial()
+    )
     racetrack_gdf = GeoDataFrame.from_postgis(sql=racetrack_parcel_data, con=connect_spatial())
     cntbnd_gdf = GeoDataFrame.from_postgis(sql=cntbnd_data, con=connect_spatial())
-    majrds_gdf = SelectByLocation(GeoDataFrame.from_postgis(sql=majrds_wointerstate_data,
-                                                                con=connect_spatial()),
-                                  cntbnd_gdf)  # excluding interstate highways
-    majhwys_gdf = SelectByLocation(GeoDataFrame.from_postgis(sql=majhwys_onlyinterstate_data,
-                                                                 con=connect_spatial()),
-                                   cntbnd_gdf)  # interstate highways only
-    rail_gdf = SelectByLocation(GeoDataFrame.from_postgis(sql=rail_noise_data, con=connect_spatial()), cntbnd_gdf)
-    railxing_gdf = SelectByLocation(GeoDataFrame.from_postgis(sql=railxing_noise_data,
-                                                                  con=connect_spatial()), cntbnd_gdf)
+    majrds_gdf = SelectByLocation(
+        GeoDataFrame.from_postgis(sql=majrds_wointerstate_data, con=connect_spatial()),
+        cntbnd_gdf
+    )  # excluding interstate highways
+    majhwys_gdf = SelectByLocation(
+        GeoDataFrame.from_postgis(sql=majhwys_onlyinterstate_data, con=connect_spatial()),
+        cntbnd_gdf
+    )  # interstate highways only
+    rail_gdf = SelectByLocation(
+        GeoDataFrame.from_postgis(sql=rail_noise_data, con=connect_spatial()),
+        cntbnd_gdf
+    )
+    railxing_gdf = SelectByLocation(
+        GeoDataFrame.from_postgis(sql=railxing_noise_data, con=connect_spatial()),
+        cntbnd_gdf
+    )
 
-    for key in noise_barrier_dict.keys():
-        WithinDistance(noise_barrier_dict[key], input_gdf, parcel_uniqueid, locals()[key + '_gdf'], key + '_noise')
+    WithinDistance(noise_barrier_dict['airport'], input_gdf, parcel_uniqueid, airport_gdf, 'airport_noise')
+    WithinDistance(noise_barrier_dict['industry'], input_gdf, parcel_uniqueid, industry_gdf, 'airport_noise')
+    WithinDistance(noise_barrier_dict['racetrack'], input_gdf, parcel_uniqueid, racetrack_gdf, 'airport_noise')
+    WithinDistance(noise_barrier_dict['majrds'], input_gdf, parcel_uniqueid, majrds_gdf, 'airport_noise')
+    WithinDistance(noise_barrier_dict['majhwys'], input_gdf, parcel_uniqueid, majhwys_gdf, 'airport_noise')
+    WithinDistance(noise_barrier_dict['rail'], input_gdf, parcel_uniqueid, rail_gdf, 'airport_noise')
+    WithinDistance(noise_barrier_dict['railxing'], input_gdf, parcel_uniqueid, railxing_gdf, 'airport_noise')
 
-    input_gdf['noise_score'] = input_gdf['airport_noise'] + input_gdf['industry_noise'] + \
-        input_gdf['racetrack_noise'] + input_gdf['majrds_noise'] + input_gdf['majhwys_noise'] + \
-        input_gdf['rail_noise'] * input_gdf['railxing_noise']
+    input_gdf['noise_score'] = (
+            input_gdf['airport_noise'] + input_gdf['industry_noise'] + input_gdf['racetrack_noise'] +
+            input_gdf['majrds_noise'] + input_gdf['majhwys_noise'] +
+            input_gdf['rail_noise'] * input_gdf['railxing_noise']
+    )
 
     return pd.Series((-4/3) * input_gdf['noise_score'].values + 9,
-                     index=input_gdf[parcel_uniqueid], name=lucode+'_noisequality')
+                     index=input_gdf[parcel_uniqueid],
+                     name=lucode+'_noisequality')
 
 
 def PhysicalSoilQuality(inputgdfsql, soilcorrwgtsql, soildrainsuitsql, soilcorrsuitsql, lucode):
@@ -52,7 +69,8 @@ def PhysicalSoilQuality(inputgdfsql, soilcorrwgtsql, soildrainsuitsql, soilcorrs
     soil_gdf['soilquality_suit'] = soil_gdf[['drain_suit', 'corr_suit']].mean(axis=1)
 
     return pd.Series(Identity(input_gdf, soil_gdf, ['soilquality_suit'])['soilquality_suit'].values,
-                     index=input_gdf[parcel_uniqueid], name=lucode+'_soilquality')
+                     index=input_gdf[parcel_uniqueid],
+                     name=lucode+'_soilquality')
 
 
 def PhysicalFlooding(inputgdfsql, floodsoilsuitsql, floodgfchabsuitsql, floodwgtsql, lucode):
@@ -67,20 +85,22 @@ def PhysicalFlooding(inputgdfsql, floodsoilsuitsql, floodgfchabsuitsql, floodwgt
 
     arr_data = PostgresRasterToArray(gfchabraster, rasterconn)
     floodgfchab_sdf = pd.read_sql(floodgfchabsuitsql, connect_class())
-    input_gdf['floodgfchab_suit'] = ZonalStatsRasterArray(input_gdf, ReclassifyRasterArray(arr_data[0],
-                                                                                           floodgfchab_sdf),
-                                                          arr_data[1], ['mean'])['mean']
+    input_gdf['floodgfchab_suit'] = ZonalStatsRasterArray(
+        input_gdf, ReclassifyRasterArray(arr_data[0], floodgfchab_sdf), arr_data[1], ['mean']
+    )['mean']
     flood_wdf = pd.read_sql(floodwgtsql, connect_class(), index_col='class')
     WeightedSum(input_gdf, ['floodsoil_suit', 'floodgfchab_suit'], flood_wdf, 'flooding_suit')
-    return pd.Series(input_gdf['flooding_suit'].values, index=input_gdf[parcel_uniqueid], name=lucode+'_flooding')
+    return pd.Series(input_gdf['flooding_suit'].values,
+                     index=input_gdf[parcel_uniqueid],
+                     name=lucode+'_flooding')
 
 
 def PhysicalAirQuality(inputgdfsql, exstgdfsql, lucode):
     exst_gdf = GeoDataFrame.from_postgis(sql=exstgdfsql, con=connect_spatial())
     input_gdf = GeoDataFrame.from_postgis(sql=inputgdfsql, con=connect_spatial())
-    cntbnd_gdf = GeoDataFrame.from_postgis(sql=cntbnd_data, con=connect_spatial())
 
-    sewtrt_gdf = SelectByLocation(GeoDataFrame.from_postgis(sql=sewagetrt_data, con=connect_spatial()), cntbnd_gdf)
+    sewtrt_gdf = SelectByLocation(GeoDataFrame.from_postgis(sql=sewagetrt_data, con=connect_spatial()),
+                                  GeoDataFrame.from_postgis(sql=cntbnd_data, con=connect_spatial()))
     intag_gdf = GeoDataFrame.from_postgis(sql=intensag_parcel_data, con=connect_spatial())
     intindutil_gdf = GeoDataFrame.from_postgis(sql=intensindutil_parcel_data, con=connect_spatial())
 
@@ -89,7 +109,8 @@ def PhysicalAirQuality(inputgdfsql, exstgdfsql, lucode):
     PointToPointLinearRescale(exst_gdf, intindutil_gdf, 'intutil', 'FAR', input_gdf)
 
     return pd.Series(input_gdf[['sewtrt_distsuit', 'intag_distsuit', 'intutil_distsuit']].min(axis=1).values,
-                     index=input_gdf[parcel_uniqueid], name=lucode+'_airquality')
+                     index=input_gdf[parcel_uniqueid],
+                     name=lucode+'_airquality')
 
 
 def PhysicalHazard(inputgdfsql, hazardsuperfundsuitsql, hazardstatesitessuitsql, hazardwgtsql, lucode):
@@ -99,15 +120,17 @@ def PhysicalHazard(inputgdfsql, hazardsuperfundsuitsql, hazardstatesitessuitsql,
 
     input_gdf['superfunddist'] = ToPointDistance(input_gdf, superfund_gdf, 'euclidean')
     input_gdf['statesitesdist'] = ToPointDistance(input_gdf, statesites_gdf, 'euclidean')
-    input_gdf['superfund_suit'] = RescaleByInterval(input_gdf,
-                                                    pd.read_sql(hazardsuperfundsuitsql, con=connect_class()),
-                                                    'superfunddist')
-    input_gdf['statesites_suit'] = RescaleByInterval(input_gdf,
-                                                     pd.read_sql(hazardstatesitessuitsql, con=connect_class()),
-                                                     'statesitesdist')
+    input_gdf['superfund_suit'] = RescaleByInterval(
+        input_gdf, pd.read_sql(hazardsuperfundsuitsql, con=connect_class()), 'superfunddist'
+    )
+    input_gdf['statesites_suit'] = RescaleByInterval(
+        input_gdf, pd.read_sql(hazardstatesitessuitsql, con=connect_class()), 'statesitesdist'
+    )
     hazard_wdf = pd.read_sql(hazardwgtsql, con=connect_class(), index_col='class')
     WeightedSum(input_gdf, ['superfund_suit', 'statesites_suit'], hazard_wdf, 'hazard_suit')
-    return pd.Series(input_gdf['hazard_suit'].values, index=input_gdf[parcel_uniqueid], name=lucode+'_hazard')
+    return pd.Series(input_gdf['hazard_suit'].values,
+                     index=input_gdf[parcel_uniqueid],
+                     name=lucode+'_hazard')
 
 
 def ProximityServiceAmenities(inputgdfsql, exstgdfsql, schoolsyswgtsql, servicewgtsql, lucode):
@@ -134,11 +157,15 @@ def ProximityServiceAmenities(inputgdfsql, exstgdfsql, schoolsyswgtsql, servicew
                     school_wdf, 'school_distsuit')
         WeightedSum(input_gdf, ['school_distsuit', 'fireresque_distsuit', 'police_distsuit', 'hospital_distsuit'],
                     service_wdf, 'service_suit')
-        return pd.Series(input_gdf['service_suit'].values, index=input_gdf[parcel_uniqueid], name=lucode+'_service')
+        return pd.Series(input_gdf['service_suit'].values,
+                         index=input_gdf[parcel_uniqueid],
+                         name=lucode+'_service')
     else:
         WeightedSum(input_gdf, ['fireresque_distsuit', 'police_distsuit', 'hospital_distsuit'],
                     service_wdf, 'service_suit')
-        return pd.Series(input_gdf['service_suit'].values, index=input_gdf[parcel_uniqueid], name=lucode+'_service')
+        return pd.Series(input_gdf['service_suit'].values,
+                         index=input_gdf[parcel_uniqueid],
+                         name=lucode+'_service')
 
 
 def ProximityTransitRoads(inputgdfsql, exstgdfsql, cellsize, transitroadswgtsql, lucode):
@@ -210,7 +237,9 @@ def ProximityShopping(inputgdfsql, exstgdfsql, lucode):
     dist_mean = np.mean(exst_dist)
     dist_max = np.max(exst_dist)
     LinearRescale(input_gdf, 'shopdist', 'shop_suit', dist_max, dist_mean, 1, 9)
-    return pd.Series(input_gdf['shop_suit'].values, index=input_gdf[parcel_uniqueid], name=lucode+'_shopping')
+    return pd.Series(input_gdf['shop_suit'].values,
+                     index=input_gdf[parcel_uniqueid],
+                     name=lucode+'_shopping')
 
 
 def ProximityExistingLandUse(inputgdfsql, exstgdfsql, exstcutyear, lucode):
@@ -313,55 +342,76 @@ def ProximityLandValue(inputgdfsql, exstgdfsql, lucode):
         if np.any(input_gdf['dolperacre'] == 0):
             nolvinput_gdf = input_gdf.loc[input_gdf[landvaluefield] == 0]
             input_gdf['dolperacre'].iloc[input_gdf[input_gdf[landvaluefield] == 0].index.values] = idwfunction(
-                np.column_stack((nolvinput_gdf.centroid.x, nolvinput_gdf.centroid.y)))
+                np.column_stack((nolvinput_gdf.centroid.x, nolvinput_gdf.centroid.y))
+            )
         if np.any(exst_gdf['dolperacre'] == 0):
             nolvexst_gdf = exst_gdf.loc[exst_gdf[landvaluefield] == 0]
             exst_gdf['dolperacre'].iloc[exst_gdf[exst_gdf[landvaluefield] == 0].index.values] = idwfunction(
-                np.column_stack((nolvexst_gdf.centroid.x, nolvexst_gdf.centroid.y)))
+                np.column_stack((nolvexst_gdf.centroid.x, nolvexst_gdf.centroid.y))
+            )
     landvalue_mean = np.mean(exst_gdf['dolperacre'])
     landvalue_max = np.max(exst_gdf['dolperacre'])
     LinearRescale(input_gdf, 'dolperacre', 'landvalue_suit', landvalue_max, landvalue_mean, 1, 9)
-    return pd.Series(input_gdf['landvalue_suit'].values, index=input_gdf[parcel_uniqueid], name=lucode+'_landvalue')
+    return pd.Series(input_gdf['landvalue_suit'].values,
+                     index=input_gdf[parcel_uniqueid],
+                     name=lucode+'_landvalue')
 
 
 def PresentLandUse(inputgdfsql, gfchabsuitsql, yrsuitsql, actusewgtsql, lucode):
     inputgeomix = inputgdfsql.find('geom')
     inputyrgdfsql = inputgdfsql[:inputgeomix] + yearbltfield + ', ' + lucodefield + ', ' + inputgdfsql[inputgeomix:]
     input_gdf = GeoDataFrame.from_postgis(sql=inputyrgdfsql, con=connect_spatial())
-    gfchab_data = PostgresRasterToArray(gfchabraster, rasterconn)
-    input_gdf['gfchab_suit'] = ZonalStatsRasterArray(input_gdf,
-                                                     ReclassifyRasterArray(
-                                                         gfchab_data[0],
-                                                         pd.read_sql(gfchabsuitsql, connect_class())),
-                                                     gfchab_data[1], ['mean'])['mean']
+
+    # habitat suitability
+    gfchab_arr = PostgresRasterToArray(gfchabraster, rasterconn)
+    input_gdf['gfchab_suit'] = ZonalStatsRasterArray(
+        zonegeodf=input_gdf,
+        rasterarr=ReclassifyRasterArray(gfchab_arr[0], pd.read_sql(gfchabsuitsql, connect_class())),
+        transaffine=gfchab_arr[1],
+        stats=['mean']
+    )['mean']
+
+    # built year suitability
     input_gdf['yrblt_suit'] = RescaleByInterval(input_gdf, pd.read_sql(yrsuitsql, connect_class()), yearbltfield)
     input_gdf.loc[input_gdf[yearbltfield] == 0, 'yrblt_suit'] = 1
-    "SELECT doruc FROM "
+
+    # land use suitability
     input_gdf['landuse_suit'] = 1
     if lucode in ['mf', 'sf']:
-        luseries = pd.read_sql("SELECT {} FROM def_parcel "
-                               "WHERE classification = '{}' OR "
-                               "classification = 'vacant residential'".format(lucodefield, lucisAllLuCode[lucode]),
-                               connect_class())[lucodefield]
+        luseries = pd.read_sql(
+            sql="SELECT {} FROM def_parcel "
+                "WHERE classification = '{}' OR "
+                "classification = 'vacant residential'".format(lucodefield, lucisAllLuCode[lucode]),
+            con=connect_class()
+        )[lucodefield]
     elif lucode in ['com', 'ret', 'ser', 'ent']:
-        luseries = pd.read_sql("SELECT {} FROM def_parcel "
-                               "WHERE classification = '{}' OR "
-                               "classification = 'vacant commercial'".format(lucodefield, lucisAllLuCode[lucode]),
-                               connect_class())[lucodefield]
+        luseries = pd.read_sql(
+            sql="SELECT {} FROM def_parcel "
+                "WHERE classification = '{}' OR "
+                "classification = 'vacant commercial'".format(lucodefield, lucisAllLuCode[lucode]),
+            con=connect_class()
+        )[lucodefield]
     elif lucode == 'ind':
-        luseries = pd.read_sql("SELECT {} FROM def_parcel "
-                               "WHERE classification = '{}' OR "
-                               "classification = 'vacant industrial'".format(lucodefield, lucisAllLuCode[lucode]),
-                               connect_class())[lucodefield]
+        luseries = pd.read_sql(
+            sql="SELECT {} FROM def_parcel "
+                "WHERE classification = '{}' OR "
+                "classification = 'vacant industrial'".format(lucodefield, lucisAllLuCode[lucode]),
+            con=connect_class()
+        )[lucodefield]
     else:
-        luseries = pd.read_sql("SELECT {} FROM def_parcel "
-                               "WHERE classification = '{}' OR "
-                               "classification = 'vacant institutional'".format(lucodefield, lucisAllLuCode[lucode]),
-                               connect_class())[lucodefield]
+        luseries = pd.read_sql(
+            sql="SELECT {} FROM def_parcel "
+                "WHERE classification = '{}' OR "
+                "classification = 'vacant institutional'".format(lucodefield, lucisAllLuCode[lucode]),
+            con=connect_class()
+        )[lucodefield]
     input_gdf.loc[input_gdf[lucodefield].isin(luseries), 'landuse_suit'] = 9
+
     actuse_wdf = pd.read_sql(actusewgtsql, connect_class(), index_col='class')
     WeightedSum(input_gdf, ['gfchab_suit', 'yrblt_suit', 'landuse_suit'], actuse_wdf, 'actualuse_suit')
-    return pd.Series(input_gdf['actualuse_suit'].values, index=input_gdf[parcel_uniqueid], name=lucode+'_presentuse')
+    return pd.Series(input_gdf['actualuse_suit'].values,
+                     index=input_gdf[parcel_uniqueid],
+                     name=lucode+'_presentuse')
 
 
 def LandUseGrowth(inputgdfsql, exstgdfsql, growthrangedict, lucode):
@@ -382,11 +432,16 @@ def LandUseGrowth(inputgdfsql, exstgdfsql, growthrangedict, lucode):
     input_gdf = GeoDataFrame.from_postgis(sql=inputgdfsql, con=connect_spatial())
     input_gdf['lugrowth'] = 0
     for growth in growthrangedict.keys():
-        input_gdf['lugrowth'] = input_gdf['lugrowth'] + IDW(input_gdf, plss_gdf, growth) * growthrangedict[growth][2]
-    input_gdf.loc[input_gdf['lugrowth'] == 0, 'lugrowth'] = np.min(input_gdf.loc[input_gdf['lugrowth'] != 0,
-                                                                                 'lugrowth'])
+        input_gdf['lugrowth'] = (
+                input_gdf['lugrowth'] + IDW(input_gdf, plss_gdf, growth) * growthrangedict[growth][2]
+        )
+    input_gdf.loc[input_gdf['lugrowth'] == 0, 'lugrowth'] = np.min(
+        input_gdf.loc[input_gdf['lugrowth'] != 0, 'lugrowth']
+    )
     RescaleByGammaDistribution(input_gdf, 'lugrowth', 'lugrowth_suit')
-    return pd.Series(input_gdf['lugrowth_suit'].values, index=input_gdf[parcel_uniqueid], name=lucode+'_lugrowth')
+    return pd.Series(input_gdf['lugrowth_suit'].values,
+                     index=input_gdf[parcel_uniqueid],
+                     name=lucode+'_lugrowth')
 
 
 def ProximityRetail(inputgdfsql, exstgdfsql, cellsize, retailwgtsql, lucode):
@@ -468,18 +523,22 @@ def ProximityCommercial(inputgdfsql, exstgdfsql, cellsize, commercialwgtsql, luc
 
 def ProximityDensity(inputgdfsql, exstgdfsql, cellsize, lucode):
     input_gdf = GeoDataFrame.from_postgis(sql=inputgdfsql, con=connect_spatial())
-
     exst_gdf = GeoDataFrame.from_postgis(sql=exstgdfsql, con=connect_spatial())
+
     input_gdf['exstden'] = ZonalShapeDensity(exst_gdf, input_gdf, cellsize)
     input_gdf = RescaleByGammaDistribution(input_gdf, 'exstden', 'exstden_suit')
-    return pd.Series(input_gdf['exstden_suit'].values, index=input_gdf[parcel_uniqueid], name=lucode+'_density')
+    return pd.Series(input_gdf['exstden_suit'].values,
+                     index=input_gdf[parcel_uniqueid],
+                     name=lucode+'_density')
 
 
 def ProximityInterstate(inputgdfsql, exstgdfsql, cellsize, lucode):
     input_gdf = GeoDataFrame.from_postgis(sql=inputgdfsql, con=connect_spatial())
     exst_gdf = GeoDataFrame.from_postgis(sql=exstgdfsql, con=connect_spatial())
-    interstate_gdf = SelectByLocation(GeoDataFrame.from_postgis(sql=majhwys_onlyinterstate_data, con=connect_spatial()),
-                                      GeoDataFrame.from_postgis(sql=cntbnd_data, con=connect_spatial()))
+    interstate_gdf = SelectByLocation(
+        GeoDataFrame.from_postgis(sql=majhwys_onlyinterstate_data, con=connect_spatial()),
+        GeoDataFrame.from_postgis(sql=cntbnd_data, con=connect_spatial())
+    )
     interstate_arr = ShapeToArray(interstate_gdf, cellsize)
 
     input_gdf['interstatedist'] = ToLineDistance(input_gdf, interstate_gdf, cellsize, 'manhattan', interstate_arr)
@@ -496,56 +555,73 @@ def ProximityInterstate(inputgdfsql, exstgdfsql, cellsize, lucode):
 def UrbanFinal(paraoutput):
     urbout_dict = dict((item.name, item) for item in paraoutput if item.name.split('_')[0] in lucisUrbLuCode.keys())
     urbfinal_series = pd.Series(0, index=next(iter(urbout_dict.values())).index)
-    urblucds = pd.read_sql("SELECT doruc, classification FROM def_parcel "
-                           "WHERE classification IN ('{}')".format("', '".join(lucisUrbLuCode.values())),
-                           connect_class())
-    lucdsacres = pd.read_sql("SELECT doruc, SUM(acres) FROM vector.parcel2015_orange "
-                             "WHERE doruc IN ('{}') GROUP BY doruc".format("', '".join(urblucds['doruc'].values)),
-                             connect_spatial())
+    urblucds = pd.read_sql(
+        sql="SELECT doruc, classification FROM def_parcel "
+            "WHERE classification IN ('{}')".format("', '".join(lucisUrbLuCode.values())),
+        con=connect_class()
+    )
+    lucdsacres = pd.read_sql(
+        sql="SELECT doruc, SUM(acres) FROM vector.parcel2015_orange "
+            "WHERE doruc IN ('{}') GROUP BY doruc".format("', '".join(urblucds['doruc'].values)),
+        con=connect_spatial()
+    )
     acres_series = urblucds.merge(lucdsacres, on='doruc').groupby('classification')['sum'].sum()
-    lucdsjv = pd.read_sql("SELECT doruc, SUM(jv) FROM vector.parcel2015_orange "
-                          "WHERE doruc IN ('{}') GROUP BY doruc".format("', '".join(urblucds['doruc'].values)),
-                          connect_spatial())
+    lucdsjv = pd.read_sql(
+        sql="SELECT doruc, SUM(jv) FROM vector.parcel2015_orange "
+            "WHERE doruc IN ('{}') GROUP BY doruc".format("', '".join(urblucds['doruc'].values)),
+        con=connect_spatial()
+    )
     jv_series = urblucds.merge(lucdsjv, on='doruc').groupby('classification')['sum'].sum()
-    luwgt_series = pd.read_sql("SELECT sublevel_name, weight FROM wgt_lucis "
-                               "WHERE land_use_type = 'urb'", connect_class(), index_col='sublevel_name')['weight']
+    luwgt_series = pd.read_sql(
+        sql="SELECT sublevel_name, weight FROM wgt_lucis "
+            "WHERE land_use_type = 'urb'",
+        con=connect_class(),
+        index_col='sublevel_name'
+    )['weight']
     urbwgt_series = (jv_series / np.sum(jv_series) + acres_series / np.sum(acres_series) + luwgt_series) / 3
     lutypes = lucisUrbLuCode.keys()
     for lutype in lutypes:
         goalname = lutype + '_goal'
         goal_series = pd.Series(0, index=next(iter(urbout_dict.values())).index, name=goalname)
-        objnames = pd.read_sql("SELECT DISTINCT level_name FROM wgt_lucis "
-                               "WHERE land_use_type = '{}' AND level = 'objective'".format(lutype),
-                               connect_class())['level_name'].values
+        objnames = pd.read_sql(
+            sql="SELECT DISTINCT level_name FROM wgt_lucis "
+                "WHERE land_use_type = '{}' AND level = 'objective'".format(lutype),
+            con=connect_class()
+        )['level_name'].values
         for objname in objnames:
-            subobj_wdf = pd.read_sql("SELECT sublevel_name, weight FROM wgt_lucis "
-                                     "WHERE land_use_type = '{}' AND level = 'objective' "
-                                     "AND level_name = '{}'".format(lutype, objname),
-                                     connect_class(), index_col='sublevel_name')
+            subobj_wdf = pd.read_sql(
+                sql="SELECT sublevel_name, weight FROM wgt_lucis "
+                    "WHERE land_use_type = '{}' AND level = 'objective' AND "
+                    "level_name = '{}'".format(lutype, objname),
+                con=connect_class(),
+                index_col='sublevel_name'
+            )
             objname = lutype + '_' + objname
             obj_series = pd.Series(0, index=next(iter(urbout_dict.values())).index, name=objname)
             for subobjname in subobj_wdf.index.values:
                 obj_series = obj_series + urbout_dict[lutype + '_' + subobjname] * subobj_wdf.loc[subobjname, 'weight']
             urbout_dict[objname] = obj_series
-        obj_wdf = pd.read_sql("SELECT sublevel_name, weight FROM wgt_lucis "
-                              "WHERE land_use_type = '{}' AND level = 'goal'".format(lutype),
-                              connect_class(), index_col='sublevel_name')
+        obj_wdf = pd.read_sql(
+            sql="SELECT sublevel_name, weight FROM wgt_lucis "
+                "WHERE land_use_type = '{}' AND level = 'goal'".format(lutype),
+            con=connect_class(),
+            index_col='sublevel_name'
+        )
         for objname in obj_wdf.index.values:
             goal_series = goal_series + urbout_dict[lutype + '_' + objname] * obj_wdf.loc[objname, 'weight']
         minval = np.min(goal_series)
         maxval = np.max(goal_series)
         goal_series = (goal_series - minval) * 8 / (maxval - minval) + 1
         urbfinal_series = urbfinal_series + goal_series * urbwgt_series[lucisUrbLuCode[lutype]]
-    # urbmin = np.min(urbfinal_series)
-    # urbmax = np.max(urbfinal_series)
-    # urbfinal_series = (urbfinal_series - urbmin) * 8 / (urbmax - urbmin) + 1
     return pd.Series(urbfinal_series, name='urb_final')
 
 
 def ClipModelRescale(inputgdfsql, modelname):
     input_gdf = GeoDataFrame.from_postgis(sql=inputgdfsql, con=connect_spatial())
-    clip_ddf = pd.read_sql("SELECT raster_name, no_data_value FROM def_clipmodel "
-                           "WHERE model_name = '{}'".format(modelname), connect_class())
+    clip_ddf = pd.read_sql(
+        sql="SELECT raster_name, no_data_value FROM def_clipmodel WHERE model_name = '{}'".format(modelname),
+        con=connect_class()
+    )
     clipmodel_data = PostgresRasterToArray(clip_ddf['raster_name'].values[0],
                                            rasterconn, clip_ddf['no_data_value'].values[0])
     modelname = modelname.replace(' ', '')
@@ -553,7 +629,9 @@ def ClipModelRescale(inputgdfsql, modelname):
     minvalue = np.min(input_gdf[modelname+'_v'])
     maxvalue = np.max(input_gdf[modelname+'_v'])
     LinearRescale(input_gdf, modelname + '_v', modelname + '_s', maxvalue, minvalue, 1, 9)
-    return pd.Series(input_gdf[modelname+'_s'].values, index=input_gdf[parcel_uniqueid], name='con_' + modelname)
+    return pd.Series(input_gdf[modelname+'_s'].values,
+                     index=input_gdf[parcel_uniqueid],
+                     name='con_' + modelname)
 
 
 def ConversationConnectivity(inputgdfsql):
@@ -561,8 +639,10 @@ def ConversationConnectivity(inputgdfsql):
     mgbank_gdf = GeoDataFrame.from_postgis(sql=mgbank_data, con=connect_spatial())
     input_gdf['mgbank'] = 1
     input_gdf.loc[input_gdf[parcel_uniqueid].isin(gpd.sjoin(input_gdf, mgbank_gdf)[parcel_uniqueid]), 'mgbank'] = 9
-    greenway_ddf = pd.read_sql("SELECT raster_name, no_data_value FROM def_clipmodel WHERE model_name = 'greenway'",
-                               connect_class())
+    greenway_ddf = pd.read_sql(
+        sql="SELECT raster_name, no_data_value FROM def_clipmodel WHERE model_name = 'greenway'",
+        con=connect_class()
+    )
     greenway_data = PostgresRasterToArray(greenway_ddf['raster_name'].values[0],
                                           rasterconn, greenway_ddf['no_data_value'].values[0])
     input_gdf['greenway'+'_v'] = ZonalStatsRasterArray(input_gdf, greenway_data[0], greenway_data[1], ['mean'])['mean']
@@ -570,7 +650,8 @@ def ConversationConnectivity(inputgdfsql):
     maxvalue = np.max(input_gdf['greenway'+'_v'])
     LinearRescale(input_gdf, 'greenway'+'_v', 'greenway'+'_s', maxvalue, minvalue, 1, 9)
     return pd.Series(input_gdf[['greenway'+'_s', 'mgbank']].max(axis=1).values,
-                     index=input_gdf[parcel_uniqueid], name='con_connectivity')
+                     index=input_gdf[parcel_uniqueid],
+                     name='con_connectivity')
 
 
 def HabitatReclassify(inputgdfsql, gfchabsuit):
@@ -583,11 +664,12 @@ def HabitatReclassify(inputgdfsql, gfchabsuit):
 
     arr_data = PostgresRasterToArray(gfchabraster, rasterconn)
     gfchab_sdf = pd.read_sql(gfchabsuit, connect_class())
-    input_gdf['gfchab_suit'] = ZonalStatsRasterArray(input_gdf,
-                                                     ReclassifyRasterArray(arr_data[0], gfchab_sdf),
-                                                     arr_data[1], ['mean'])['mean']
+    input_gdf['gfchab_suit'] = ZonalStatsRasterArray(
+        input_gdf, ReclassifyRasterArray(arr_data[0], gfchab_sdf), arr_data[1], ['mean']
+    )['mean']
     return pd.Series(input_gdf[['gfchab_suit', 'flma_suit']].max(axis=1).values,
-                     index=input_gdf[parcel_uniqueid], name='con_gfchabflma')
+                     index=input_gdf[parcel_uniqueid],
+                     name='con_gfchabflma')
 
 
 def ConservationFinal(paraoutput):
@@ -598,17 +680,17 @@ def ConservationFinal(paraoutput):
                                        conout_dict['con_wetland']).rename("con_fldplnwtlnd")
     conecoprcss_series = np.maximum(confldplnwtlnd_series,
                                     conout_dict['con_gfchabflma']).rename("con_ecoprcss")
-    conwgt_series = pd.read_sql("SELECT sublevel_name, weight FROM wgt_lucis "
-                                "WHERE land_use_type = 'con'", connect_class(), index_col='sublevel_name')['weight']
+    conwgt_series = pd.read_sql(
+        sql="SELECT sublevel_name, weight FROM wgt_lucis WHERE land_use_type = 'con'",
+        con=connect_class(),
+        index_col='sublevel_name'
+    )['weight']
     confinal_series = np.maximum(
         conout_dict['con_connectivity'],
         conout_dict['con_biodiversity'] * conwgt_series['biodiversity'] +
         conwaterquality_series * conwgt_series['waterquality'] +
         conecoprcss_series * conwgt_series['ecologicalprocess']
     )
-    # conmin = np.min(confinal_series)
-    # conmax = np.max(confinal_series)
-    # confinal_series = (confinal_series - conmin) * 8 / (conmax - conmin) + 1
     return pd.Series(confinal_series, name='con_final')
 
 
@@ -625,7 +707,9 @@ def SoilProduction(inputgdfsql):
     input_gdf['soilproduct'] = 1
     input_gdf.loc[input_gdf[parcel_uniqueid].isin(selected_input[parcel_uniqueid]), 'soilproduct'] = \
         ZonalStatsRasterArray(selected_input, fsaid_arr[0], fsaid_arr[1], ['mean'], 0)['mean']
-    return pd.Series(input_gdf['soilproduct'].values, index=input_gdf[parcel_uniqueid], name='rcrp_soilprdctn')
+    return pd.Series(input_gdf['soilproduct'].values,
+                     index=input_gdf[parcel_uniqueid],
+                     name='rcrp_soilprdctn')
 
 
 def PrimeFarmland(inputgdfsql, nrcsprimefarmsuitsql, agparcelprimefarmsuitsql):
@@ -643,21 +727,26 @@ def PrimeFarmland(inputgdfsql, nrcsprimefarmsuitsql, agparcelprimefarmsuitsql):
     ReclassifyByValue(input_gdf, 'doruc', 'agparcel_suit',
                       dict(zip(agparcel_sdf.iloc[:, 0], agparcel_sdf.iloc[:, 1])), novalue=1)
     return pd.Series(input_gdf[['frmlnd_suit', 'agparcel_suit']].max(axis=1).values,
-                     index=input_gdf[parcel_uniqueid], name='rcrp_primefrm')
+                     index=input_gdf[parcel_uniqueid],
+                     name='rcrp_primefrm')
 
 
 def RowCropsMarket(inputgdfsql):
     input_gdf = GeoDataFrame.from_postgis(sql=inputgdfsql, con=connect_spatial())
     city_gdf = GeoDataFrame.from_postgis(sql=citypop_data, con=connect_spatial())
     citypop_ddf = pd.read_sql("SELECT city_size, pop_lower, pop_upper FROM def_citybypopsize", connect_class())
-    large_lower, large_upper = citypop_ddf.loc[citypop_ddf['city_size'] == 'large',
-                                               ['pop_lower', 'pop_upper']].values[0]
-    medium_lower, medium_upper = citypop_ddf.loc[citypop_ddf['city_size'] == 'medium',
-                                                 ['pop_lower', 'pop_upper']].values[0]
-    small_lower, small_upper = citypop_ddf.loc[citypop_ddf['city_size'] == 'small',
-                                               ['pop_lower', 'pop_upper']].values[0]
-    mini_lower, mini_upper = citypop_ddf.loc[citypop_ddf['city_size'] == 'mini',
-                                             ['pop_lower', 'pop_upper']].values[0]
+    large_lower, large_upper = citypop_ddf.loc[
+        citypop_ddf['city_size'] == 'large', ['pop_lower', 'pop_upper']
+    ].values[0]
+    medium_lower, medium_upper = citypop_ddf.loc[
+        citypop_ddf['city_size'] == 'medium', ['pop_lower', 'pop_upper']
+    ].values[0]
+    small_lower, small_upper = citypop_ddf.loc[
+        citypop_ddf['city_size'] == 'small', ['pop_lower', 'pop_upper']
+    ].values[0]
+    mini_lower, mini_upper = citypop_ddf.loc[
+        citypop_ddf['city_size'] == 'mini', ['pop_lower', 'pop_upper']
+    ].values[0]
     large_cities = city_gdf.loc[(city_gdf['pop2010'] >= large_lower) & (city_gdf['pop2010'] < large_upper), :]
     medium_cities = city_gdf.loc[(city_gdf['pop2010'] >= medium_lower) & (city_gdf['pop2010'] < medium_upper), :]
     small_cities = city_gdf.loc[(city_gdf['pop2010'] >= small_lower) & (city_gdf['pop2010'] < small_upper), :]
@@ -666,37 +755,49 @@ def RowCropsMarket(inputgdfsql):
     input_gdf['medium_dist'] = ToPointDistance(input_gdf, medium_cities, 'euclidean')
     input_gdf['small_dist'] = ToPointDistance(input_gdf, small_cities, 'euclidean')
     input_gdf['mini_dist'] = ToPointDistance(input_gdf, mini_cities, 'euclidean')
-    city_wdf = pd.read_sql("SELECT class, weight FROM wgt_agmodel "
-                           "WHERE land_use_type = 'row crops' AND model = 'row crops market'", connect_class(),
-                           index_col='class')
+    city_wdf = pd.read_sql(
+        sql="SELECT class, weight FROM wgt_agmodel "
+            "WHERE land_use_type = 'row crops' AND model = 'row crops market'",
+        con=connect_class(),
+        index_col='class'
+    )
     WeightedSum(input_gdf, ['large_dist', 'medium_dist', 'small_dist', 'mini_dist'], city_wdf, 'marketdist')
     LinearRescale(input_gdf, 'marketdist', 'marketsuit', input_gdf['marketdist'].values.max(),
                   input_gdf['marketdist'].values.min(), 1, 9)
     rowcrops_gdf = GeoDataFrame.from_postgis(sql=rowcrops_data, con=connect_spatial())
     selected_input = SelectByLocation(input_gdf, rowcrops_gdf)
     input_gdf.loc[input_gdf[parcel_uniqueid].isin(selected_input[parcel_uniqueid]), 'marketsuit'] = 9
-    return pd.Series(input_gdf['marketsuit'].values, index=input_gdf[parcel_uniqueid], name='rcrp_market')
+    return pd.Series(input_gdf['marketsuit'].values,
+                     index=input_gdf[parcel_uniqueid],
+                     name='rcrp_market')
 
 
 def ProductTransport(inputgdfsql):
     input_gdf = GeoDataFrame.from_postgis(sql=inputgdfsql, con=connect_spatial())
     cntbnd_gdf = GeoDataFrame.from_postgis(sql=cntbnd_data, con=connect_spatial())
     rcrp_gdf = GeoDataFrame.from_postgis(sql=rowcrops_data, con=connect_spatial())
-    majrds_gdf = SelectByLocation(GeoDataFrame.from_postgis(sql=majrds_wointerstate_data, con=connect_spatial()),
-                                  cntbnd_gdf)
-    majhwys_gdf = SelectByLocation(GeoDataFrame.from_postgis(sql=majhwys_onlyinterstate_data, con=connect_spatial()),
-                                   cntbnd_gdf)
+    majrds_gdf = SelectByLocation(
+        GeoDataFrame.from_postgis(sql=majrds_wointerstate_data, con=connect_spatial()), cntbnd_gdf
+    )
+    majhwys_gdf = SelectByLocation(
+        GeoDataFrame.from_postgis(sql=majhwys_onlyinterstate_data, con=connect_spatial()), cntbnd_gdf
+    )
     input_gdf['majrdsdist'] = ToLineDistance(input_gdf, majrds_gdf, cell_size, 'euclidean')
     input_gdf['majhwysdist'] = ToLineDistance(input_gdf, majhwys_gdf, cell_size, 'euclidean')
     rcrpmajrdsarr = ToLineDistance(rcrp_gdf, majrds_gdf, cell_size, 'euclidean')
     rcrpmajhwysarr = ToLineDistance(rcrp_gdf, majhwys_gdf, cell_size, 'euclidean')
     LinearRescale(input_gdf, 'majrdsdist', 'majrdsdist_suit', np.max(rcrpmajrdsarr), np.mean(rcrpmajrdsarr), 1, 9)
     LinearRescale(input_gdf, 'majhwysdist', 'majhwysdist_suit', np.max(rcrpmajhwysarr), np.mean(rcrpmajhwysarr), 1, 9)
-    rdshwys_wdf = pd.read_sql("SELECT class, weight FROM wgt_agmodel "
-                              "WHERE land_use_type = 'row crops' AND model = 'product transport'",
-                              connect_class(), index_col='class')
+    rdshwys_wdf = pd.read_sql(
+        sql="SELECT class, weight FROM wgt_agmodel "
+            "WHERE land_use_type = 'row crops' AND model = 'product transport'",
+        con=connect_class(),
+        index_col='class'
+    )
     WeightedSum(input_gdf, ['majrdsdist_suit', 'majhwysdist_suit'], rdshwys_wdf, 'rcrptransport')
-    return pd.Series(input_gdf['rcrptransport'].values, index=input_gdf[parcel_uniqueid], name='rcrp_transport')
+    return pd.Series(input_gdf['rcrptransport'].values,
+                     index=input_gdf[parcel_uniqueid],
+                     name='rcrp_transport')
 
 
 def CropLandValue(inputgdfsql):
@@ -704,27 +805,40 @@ def CropLandValue(inputgdfsql):
     inputlvgdfsql = inputgdfsql[:inputgeomix] + landvaluefield + ', ' + inputgdfsql[inputgeomix:]
     input_gdf = GeoDataFrame.from_postgis(sql=inputlvgdfsql, con=connect_spatial())
     input_gdf['dolperacre'] = input_gdf['jv'] / (input_gdf.area / sqmtoacre)
+
     rcrpparcel_gdf = GeoDataFrame.from_postgis(sql=cropland_parcel_data, con=connect_spatial())
     rcrpparcel_gdf['dolperacre'] = rcrpparcel_gdf['jv'] / (rcrpparcel_gdf.area / sqmtoacre)
     rcrpparcel_grouped = rcrpparcel_gdf.groupby('doruc')
     rcrpmean = rcrpparcel_grouped['dolperacre'].agg(np.mean)
     rcrpmax = pd.Series(rcrpparcel_grouped['dolperacre'].agg(np.max), index=rcrpmean.index)
-    rcrp_wdf = pd.read_sql("SELECT class, weight FROM wgt_agmodel "
-                           "WHERE land_use_type = 'row crops' AND model = 'land value'",
-                           connect_class(), index_col='class')
+    rcrp_wdf = pd.read_sql(
+        "SELECT class, weight FROM wgt_agmodel "
+        "WHERE land_use_type = 'row crops' AND model = 'land value'",
+        connect_class(), index_col='class'
+    )
     input_gdf['crplandvalue'] = 0
     for idx in rcrpmean.index.values:
-        input_gdf['crplandvalue'] = input_gdf['crplandvalue'] + \
-                                    rcrp_wdf['weight'][idx] * LinearRescale(input_gdf, 'dolperacre',
-                                                                            'dolperacre_' + idx, rcrpmax[idx],
-                                                                            rcrpmean[idx], 1, 9)['dolperacre_' + idx]
+        input_gdf['crplandvalue'] = (
+                input_gdf['crplandvalue'] + rcrp_wdf['weight'][idx] *
+                LinearRescale(
+                    input_gdf, 'dolperacre', 'dolperacre_' + idx, rcrpmax[idx], rcrpmean[idx], 1, 9
+                )['dolperacre_' + idx]
+        )
     if rcrpparcel_grouped.ngroups < len(rcrp_wdf):
-        return pd.Series(LinearRescale(input_gdf, 'crplandvalue', 'croplandvalue',
-                                       input_gdf['crplandvalue'].values.min(),
-                                       input_gdf['crplandvalue'].values.max(), 1, 9)['croplandvalue'].values,
-                         index=input_gdf[parcel_uniqueid], name='rcrp_landvalue')
+        return pd.Series(
+            LinearRescale(
+                input_gdf, 'crplandvalue', 'croplandvalue', input_gdf['crplandvalue'].values.min(),
+                input_gdf['crplandvalue'].values.max(), 1, 9
+            )['croplandvalue'].values,
+            index=input_gdf[parcel_uniqueid],
+            name='rcrp_landvalue'
+        )
     else:
-        return pd.Series(input_gdf['crplandvalue'].values, index=input_gdf[parcel_uniqueid], name='rcrp_landvalue')
+        return pd.Series(
+            input_gdf['crplandvalue'].values,
+            index=input_gdf[parcel_uniqueid],
+            name='rcrp_landvalue'
+        )
 
 
 def AgricultureLandUse(inputgeodfsql, agtype):
@@ -732,47 +846,61 @@ def AgricultureLandUse(inputgeodfsql, agtype):
     inputdorgdfsql = inputgeodfsql[:inputgeomix] + lucodefield + ', ' + inputgeodfsql[inputgeomix:]
     input_gdf = GeoDataFrame.from_postgis(sql=inputdorgdfsql, con=connect_spatial())
     aglanduse_sdf = pd.read_sql(
-        "SELECT class, suit_score FROM suit_agmodel_bycase "
-        "WHERE land_use_type = '{}' AND model = 'land use'".format(agtype),
-        connect_class())
+        sql="SELECT class, suit_score FROM suit_agmodel_bycase "
+            "WHERE land_use_type = '{}' AND model = 'land use'".format(agtype),
+        con=connect_class()
+    )
     agludict = {'livestock high intensity': 'lshi',
                 'livestock low intensity': 'lsli',
                 'specialty farm': 'sfrm',
                 'nursery': 'nsry',
                 'timber': 'tmbr'}
     outname = agludict[agtype] + '_lnduse'
-    ReclassifyByValue(input_gdf, 'doruc', outname,
-                      dict(zip(aglanduse_sdf.iloc[:, 0], aglanduse_sdf.iloc[:, 1])), novalue=1)
-    return pd.Series(input_gdf[outname].values, index=input_gdf[parcel_uniqueid], name=outname)
+    ReclassifyByValue(
+        input_gdf, 'doruc', outname, dict(zip(aglanduse_sdf.iloc[:, 0], aglanduse_sdf.iloc[:, 1])), novalue=1
+    )
+    return pd.Series(input_gdf[outname].values,
+                     index=input_gdf[parcel_uniqueid],
+                     name=outname)
 
 
 def LivestockOpenWater(inputgeodfsql, hililstk):
     input_gdf = GeoDataFrame.from_postgis(sql=inputgeodfsql, con=connect_spatial())
     cntbnd_gdf = GeoDataFrame.from_postgis(sql=cntbnd_data, con=connect_spatial())
     flowline_gdf = SelectByLocation(
-        GeoDataFrame.from_postgis(sql=nhdflowline_data, con=connect_spatial()), cntbnd_gdf)
+        GeoDataFrame.from_postgis(sql=nhdflowline_data, con=connect_spatial()), cntbnd_gdf
+    )
     waterbody_gdf = SelectByLocation(
-        GeoDataFrame.from_postgis(sql=nhdwaterbody_data, con=connect_spatial()), cntbnd_gdf)
+        GeoDataFrame.from_postgis(sql=nhdwaterbody_data, con=connect_spatial()), cntbnd_gdf
+    )
     input_gdf['flowlinedist'] = ToLineDistance(input_gdf, flowline_gdf, cell_size, 'euclidean')
     input_gdf['waterbodydist'] = ToPolygonDistance(input_gdf, waterbody_gdf, cell_size, 'euclidean')
-    flowline_suit = "SELECT lower, upper, suit_score FROM suit_agmodel_byinterval " \
-                    "WHERE land_use_type = 'livestock' AND model = 'open water water body'"
-    waterbody_suit = "SELECT lower, upper, suit_score FROM suit_agmodel_byinterval " \
-                     "WHERE land_use_type = 'livestock' AND model = 'open water flow line'"
+    flowline_suit = (
+        "SELECT lower, upper, suit_score FROM suit_agmodel_byinterval "
+        "WHERE land_use_type = 'livestock' AND model = 'open water water body'"
+    )
+    waterbody_suit = (
+        "SELECT lower, upper, suit_score FROM suit_agmodel_byinterval "
+        "WHERE land_use_type = 'livestock' AND model = 'open water flow line'"
+    )
     input_gdf['flowline_suit'] = RescaleByInterval(
-        input_gdf, pd.read_sql(flowline_suit, con=connect_class()), 'flowlinedist')
+        input_gdf, pd.read_sql(flowline_suit, con=connect_class()), 'flowlinedist'
+    )
     input_gdf['waterbody_suit'] = RescaleByInterval(
-        input_gdf, pd.read_sql(waterbody_suit, con=connect_class()), 'waterbodydist')
+        input_gdf, pd.read_sql(waterbody_suit, con=connect_class()), 'waterbodydist'
+    )
     outname = 'ls{}i'.format(hililstk[:1]) + '_openwtr'
     return pd.Series(input_gdf[['flowline_suit', 'waterbody_suit']].max(axis=1).values,
-                     index=input_gdf[parcel_uniqueid], name=outname)
+                     index=input_gdf[parcel_uniqueid],
+                     name=outname)
 
 
 def AgricultureAquiferRecharge(inputgeodfsql, agtype):
     input_gdf = GeoDataFrame.from_postgis(sql=inputgeodfsql, con=connect_spatial())
     rechrgnodata = pd.read_sql(
-        "SELECT no_data_value FROM def_clipmodel WHERE raster_name = '{}'".format(rechargeraster),
-        connect_class()).iloc[0, 0]
+        sql="SELECT no_data_value FROM def_clipmodel WHERE raster_name = '{}'".format(rechargeraster),
+        con=connect_class()
+    ).iloc[0, 0]
     arr_data = PostgresRasterToArray(rechargeraster, rasterconn, rechrgnodata)
     input_gdf['rechrg'] = ZonalStatsRasterArray(input_gdf, arr_data[0], arr_data[1], ['mean'])['mean']
     minvalue = np.min(input_gdf['rechrg'])
@@ -782,7 +910,9 @@ def AgricultureAquiferRecharge(inputgeodfsql, agtype):
                 'livestock low intensity': 'lsli',
                 'specialty farm': 'sfrm'}
     outname = agludict[agtype] + '_rechrg'
-    return pd.Series(input_gdf['rechrg_suit'].values, index=input_gdf[parcel_uniqueid], name=outname)
+    return pd.Series(input_gdf['rechrg_suit'].values,
+                     index=input_gdf[parcel_uniqueid],
+                     name=outname)
 
 
 def AgricultureSoil(inputgdfsql, agtype):
@@ -790,8 +920,10 @@ def AgricultureSoil(inputgdfsql, agtype):
     input_gdf['geom'] = input_gdf.centroid
     soil_gdf = GeoDataFrame.from_postgis(sql=soil_data, con=connect_spatial())
     soildrain_sdf = pd.read_sql(
-        "SELECT class, suit_score from suit_agmodel_bycase "
-        "WHERE land_use_type = '{}' AND model = 'soil drainage'".format(agtype), connect_class())
+        sql="SELECT class, suit_score from suit_agmodel_bycase "
+            "WHERE land_use_type = '{}' AND model = 'soil drainage'".format(agtype),
+        con=connect_class()
+    )
     ReclassifyByValue(soil_gdf, 'drainagecl', 'drain_suit',
                       dict(zip(soildrain_sdf.iloc[:, 0], soildrain_sdf.iloc[:, 1])), novalue=1)
     agludict = {'livestock high intensity': 'lshi',
@@ -800,7 +932,8 @@ def AgricultureSoil(inputgdfsql, agtype):
                 'timber': 'tmbr'}
     outname = agludict[agtype] + '_soil'
     return pd.Series(Identity(input_gdf, soil_gdf, ['drain_suit'])['drain_suit'].values,
-                     index=input_gdf[parcel_uniqueid], name=outname).fillna(1)
+                     index=input_gdf[parcel_uniqueid],
+                     name=outname).fillna(1)
 
 
 def LivestockExtUrban(inputgeodfsql):
@@ -813,7 +946,9 @@ def LivestockExtUrban(inputgeodfsql):
     dist_mean = np.mean(lshiparcel_gdf['exturbdist'])
     dist_max = np.max(lshiparcel_gdf['exturbdist'])
     LinearRescale(input_gdf, 'exturbdist', 'exturb_suit', dist_max, dist_mean, 1, 9)
-    return pd.Series(input_gdf['exturb_suit'].values, index=input_gdf[parcel_uniqueid], name='lshi_exturb')
+    return pd.Series(input_gdf['exturb_suit'].values,
+                     index=input_gdf[parcel_uniqueid],
+                     name='lshi_exturb')
 
 
 def AgricultureMarket(inputgeodfsql, agtype, markettype):
@@ -845,18 +980,24 @@ def AgricultureMarket(inputgeodfsql, agtype, markettype):
     LinearRescale(input_gdf, lvl1dist, lvl1dist + '_suit', lvl1_max, lvl1_mean, 1, 9)
     LinearRescale(input_gdf, lvl2dist, lvl2dist + '_suit', lvl2_max, lvl2_mean, 1, 9)
     lvl1lvl2_wdf = pd.read_sql(
-        "SELECT class, weight FROM wgt_agmodel WHERE land_use_type = '{}' AND model = '{}'".format(agtype, mktname),
-        connect_class(), index_col='class')
+        sql="SELECT class, weight FROM wgt_agmodel "
+            "WHERE land_use_type = '{}' AND model = '{}'".format(agtype, mktname),
+        con=connect_class(),
+        index_col='class'
+    )
     outname = agludict[agtype][0] + '_' + markettype + 'mkt'
     WeightedSum(input_gdf, [lvl1dist+'_suit', lvl2dist+'_suit'], lvl1lvl2_wdf, outname)
-    return pd.Series(input_gdf[outname].values, index=input_gdf[parcel_uniqueid], name=outname)
+    return pd.Series(input_gdf[outname].values,
+                     index=input_gdf[parcel_uniqueid],
+                     name=outname)
 
 
 def AgricultureMajorRoads(inputgeodfsql, agtype):
     input_gdf = GeoDataFrame.from_postgis(sql=inputgeodfsql, con=connect_spatial())
-    cntbnd_gdf = GeoDataFrame.from_postgis(sql=cntbnd_data, con=connect_spatial())
     majrds_gdf = SelectByLocation(
-        GeoDataFrame.from_postgis(sql=majrds_data, con=connect_spatial()), cntbnd_gdf)
+        GeoDataFrame.from_postgis(sql=majrds_data, con=connect_spatial()),
+        GeoDataFrame.from_postgis(sql=cntbnd_data, con=connect_spatial())
+    )
     majrds_arr = ShapeToArray(majrds_gdf, cell_size)
     input_gdf['majrdsdist'] = ToLineDistance(input_gdf, majrds_gdf, cell_size, 'manhattan', majrds_arr)
     agludict = {'livestock high intensity': ['lshi', lshi_parcel_data],
@@ -870,7 +1011,9 @@ def AgricultureMajorRoads(inputgeodfsql, agtype):
     distmean = np.mean(agparcel_gdf['majrdsdist'])
     LinearRescale(input_gdf, 'majrdsdist', 'majrdsdist_suit', distmax, distmean, 1, 9)
     outname = agludict[agtype][0] + '_majrds'
-    return pd.Series(input_gdf['majrdsdist_suit'].values, index=input_gdf[parcel_uniqueid], name=outname)
+    return pd.Series(input_gdf['majrdsdist_suit'].values,
+                     index=input_gdf[parcel_uniqueid],
+                     name=outname)
 
 
 def AgricultureLandValue(inputgdfsql, agtype):
@@ -891,29 +1034,38 @@ def AgricultureLandValue(inputgdfsql, agtype):
     jvmean = np.mean(agparcel_gdf['dolperacre'])
     LinearRescale(input_gdf, 'dolperacre', 'dolperacre_suit', jvmax, jvmean, 1, 9)
     outname = agludict[agtype][0] + '_landvalue'
-    return pd.Series(input_gdf['dolperacre_suit'].values, index=input_gdf[parcel_uniqueid], name=outname)
+    return pd.Series(input_gdf['dolperacre_suit'].values,
+                     index=input_gdf[parcel_uniqueid],
+                     name=outname)
 
 
 def SpecialtyOpenWater(inputgdfsql):
     input_gdf = GeoDataFrame.from_postgis(sql=inputgdfsql, con=connect_spatial())
     cntbnd_gdf = GeoDataFrame.from_postgis(sql=cntbnd_data, con=connect_spatial())
     flowline_gdf = SelectByLocation(
-        GeoDataFrame.from_postgis(sql=nhdflowline_data, con=connect_spatial()), cntbnd_gdf)
+        GeoDataFrame.from_postgis(sql=nhdflowline_data, con=connect_spatial()), cntbnd_gdf
+    )
     waterbodyix = nhdwaterbody_data.find('DESCRIPT')
-    waterbodysql = nhdwaterbody_data[:waterbodyix] + \
-        'areasqkm >= {} AND '.format(10 * (sqmtoacre / 1000000)) + \
-        nhdwaterbody_data[waterbodyix:]
+    waterbodysql = (
+            nhdwaterbody_data[:waterbodyix] +
+            'areasqkm >= {} AND '.format(10 * (sqmtoacre / 1000000)) +
+            nhdwaterbody_data[waterbodyix:]
+    )
     waterbody_gdf = SelectByLocation(
-        GeoDataFrame.from_postgis(sql=waterbodysql, con=connect_spatial()), cntbnd_gdf)
+        GeoDataFrame.from_postgis(sql=waterbodysql, con=connect_spatial()), cntbnd_gdf
+    )
     input_gdf['flowlinedist'] = ToLineDistance(input_gdf, flowline_gdf, cell_size, 'euclidean')
     input_gdf['waterbodydist'] = ToPolygonDistance(input_gdf, waterbody_gdf, cell_size, 'euclidean')
     input_gdf['gfchabowdist'] = ToRasterDistance(input_gdf, gfchabraster, rasterconn, gfchab_ow_value, 'euclidean')
     input_gdf['owdist'] = input_gdf[['flowlinedist', 'waterbodydist', 'gfchabowdist']].min(axis=1)
-    owsuitsql = "SELECT lower, upper, suit_score FROM suit_agmodel_byinterval " \
-                "WHERE model = 'open water' AND land_use_type = 'specialty farm'"
+    owsuitsql = (
+        "SELECT lower, upper, suit_score FROM suit_agmodel_byinterval " 
+        "WHERE model = 'open water' AND land_use_type = 'specialty farm'"
+    )
     owdist_sdf = pd.read_sql(owsuitsql, connect_class())
     return pd.Series(RescaleByInterval(input_gdf, owdist_sdf, 'owdist').values,
-                     index=input_gdf[parcel_uniqueid], name='sfrm_openwtr')
+                     index=input_gdf[parcel_uniqueid],
+                     name='sfrm_openwtr')
 
 
 def SpecialtyProcessingPlant(inputgdfsql):
@@ -926,7 +1078,9 @@ def SpecialtyProcessingPlant(inputgdfsql):
     distmean = np.mean(orchard_gdf['fdprcssdist'])
     input_gdf['fdprcssdist'] = ToPointDistance(input_gdf, fdprcss_gdf, 'euclidean')
     LinearRescale(input_gdf, 'fdprcssdist', 'fdprcssdist_suit', distmax, distmean, 1, 9)
-    return pd.Series(input_gdf['fdprcssdist_suit'].values, index=input_gdf[parcel_uniqueid], name='sfrm_fdprcss')
+    return pd.Series(input_gdf['fdprcssdist_suit'].values,
+                     index=input_gdf[parcel_uniqueid],
+                     name='sfrm_fdprcss')
 
 
 def AgricultureParcelSize(inputgdfsql, agtype):
@@ -937,26 +1091,35 @@ def AgricultureParcelSize(inputgdfsql, agtype):
                 'timber': 'tmbr'}
     outname = agludict[agtype] + '_parsize'
     input_gdf['areaacre'] = input_gdf.area / sqmtoacre
-    agparsize_sdf = pd.read_sql("SELECT lower, upper, suit_score FROM suit_agmodel_byinterval "
-                                "WHERE land_use_type = '{}' AND model = 'parcel size'".format(agtype),
-                                connect_class())
+    agparsize_sdf = pd.read_sql(
+        sql="SELECT lower, upper, suit_score FROM suit_agmodel_byinterval "
+            "WHERE land_use_type = '{}' AND model = 'parcel size'".format(agtype),
+        con=connect_class()
+    )
     input_gdf['parsize_suit'] = RescaleByInterval(input_gdf, agparsize_sdf, 'areaacre', fillnaval=1)
-    niag_ddf = pd.read_sql("SELECT doruc FROM def_parcel WHERE classification = 'non-incentive agriculture'",
-                           connect_class())
+    niag_ddf = pd.read_sql(
+        sql="SELECT doruc FROM def_parcel WHERE classification = 'non-incentive agriculture'",
+        con=connect_class()
+    )
     input_gdf.loc[~input_gdf['doruc'].isin(niag_ddf['doruc'].values), 'parsize_suit'] = 1
     if agtype == 'nursery':
-        return pd.Series(input_gdf['parsize_suit'].values, index=input_gdf[parcel_uniqueid], name=outname)
+        return pd.Series(input_gdf['parsize_suit'].values,
+                         index=input_gdf[parcel_uniqueid],
+                         name=outname)
     else:
         tmbr_ddf = pd.read_sql("SELECT doruc FROM def_parcel WHERE classification = 'timber'", connect_class())
         input_gdf.loc[input_gdf['doruc'].isin(tmbr_ddf['doruc'].values), 'parsize_suit'] = 9
-        return pd.Series(input_gdf['parsize_suit'].values, index=input_gdf[parcel_uniqueid], name=outname)
+        return pd.Series(input_gdf['parsize_suit'].values,
+                         index=input_gdf[parcel_uniqueid],
+                         name=outname)
 
 
 def AgricultureGoal(agtype, agseriesdict):
     physical_wgt = pd.read_sql(
-        "SELECT sublevel_name, weight FROM wgt_lucis "
-        "WHERE land_use_type = '{}' AND level_name = 'physical'".format(agtype),
-        connect_class(), index_col='sublevel_name'
+        sql="SELECT sublevel_name, weight FROM wgt_lucis "
+            "WHERE land_use_type = '{}' AND level_name = 'physical'".format(agtype),
+        con=connect_class(),
+        index_col='sublevel_name'
     )['weight']
     physical_series = pd.Series(0, index=next(iter(agseriesdict.values())).index)
     for item in physical_wgt.index.values:
@@ -966,17 +1129,19 @@ def AgricultureGoal(agtype, agseriesdict):
     else:
         pass
     proximity_wgt = pd.read_sql(
-        "SELECT sublevel_name, weight FROM wgt_lucis "
-        "WHERE land_use_type = '{}' AND level_name = 'proximity'".format(agtype),
-        connect_class(), index_col='sublevel_name'
+        sql="SELECT sublevel_name, weight FROM wgt_lucis "
+            "WHERE land_use_type = '{}' AND level_name = 'proximity'".format(agtype),
+        con=connect_class(),
+        index_col='sublevel_name'
     )['weight']
     proximity_series = pd.Series(0, index=next(iter(agseriesdict.values())).index)
     for item in proximity_wgt.index.values:
         proximity_series = agseriesdict[agtype + '_' + item] * proximity_wgt[item] + proximity_series
     goal_wgt = pd.read_sql(
-        "SELECT sublevel_name, weight FROM wgt_lucis "
-        "WHERE land_use_type = '{}' AND level = 'goal'".format(agtype),
-        connect_class(), index_col='sublevel_name'
+        sql="SELECT sublevel_name, weight FROM wgt_lucis "
+            "WHERE land_use_type = '{}' AND level = 'goal'".format(agtype),
+        con=connect_class(),
+        index_col='sublevel_name'
     )['weight']
     goal_series = (physical_series * goal_wgt['physical'] +
                    proximity_series * goal_wgt['proximity'] +
@@ -989,16 +1154,18 @@ def AgricultureFinal(paraoutput):
     rcrpphysical_series = agout_dict['rcrp_primefrm'].where(agout_dict['rcrp_primefrm'] == 9,
                                                             agout_dict['rcrp_soilprdctn'])
     rcrpproximity_wgt = pd.read_sql(
-        "SELECT sublevel_name, weight FROM wgt_lucis "
-        "WHERE land_use_type = 'rcrp' AND level_name = 'proximity'",
-        connect_class(), index_col='sublevel_name'
+        sql="SELECT sublevel_name, weight FROM wgt_lucis "
+            "WHERE land_use_type = 'rcrp' AND level_name = 'proximity'",
+        con=connect_class(),
+        index_col='sublevel_name'
     )['weight']
     rcrpproximity_series = (agout_dict['rcrp_market'] * rcrpproximity_wgt['market'] +
                             agout_dict['rcrp_transport'] * rcrpproximity_wgt['transport'])
     rcrpgoal_wgt = pd.read_sql(
-        "SELECT sublevel_name, weight FROM wgt_lucis "
-        "WHERE land_use_type = 'rcrp' AND level = 'goal'",
-        connect_class(), index_col='sublevel_name'
+        sql="SELECT sublevel_name, weight FROM wgt_lucis "
+            "WHERE land_use_type = 'rcrp' AND level = 'goal'",
+        con=connect_class(),
+        index_col='sublevel_name'
     )['weight']
     rcrpgoal_series = (rcrpphysical_series * rcrpgoal_wgt['physical'] +
                        rcrpproximity_series * rcrpgoal_wgt['proximity'] +
@@ -1008,23 +1175,25 @@ def AgricultureFinal(paraoutput):
     lsliseries_dict = {item: agout_dict[item] for item in agout_dict.keys() if item.split('_')[0] == 'lsli'}
     lsligoal_series = AgricultureGoal('lsli', lsliseries_dict)
     lsgoal_wgt = pd.read_sql(
-        "SELECT sublevel_name, weight FROM wgt_lucis "
-        "WHERE land_use_type = 'ls' AND level = 'goal'",
-        connect_class(), index_col='sublevel_name'
+        sql="SELECT sublevel_name, weight FROM wgt_lucis "
+            "WHERE land_use_type = 'ls' AND level = 'goal'",
+        con=connect_class(),
+        index_col='sublevel_name'
     )['weight']
     lsgoal_series = lshigoal_series * lsgoal_wgt['lshi'] + lsligoal_series * lsgoal_wgt['lsli']
     lsdoruc = pd.read_sql(
-        "SELECT doruc FROM def_parcel "
-        "WHERE classification IN ('livestock high intensity', 'livestock low intensity')",
-        connect_class()
+        sql="SELECT doruc FROM def_parcel "
+            "WHERE classification IN ('livestock high intensity', 'livestock low intensity')",
+        con=connect_class()
     )['doruc'].values
     exsturbdoruc = pd.read_sql(
-        "SELECT doruc FROM def_parcel "
-        "WHERE classification = 'existing urban'",
-        connect_class()
+        sql="SELECT doruc FROM def_parcel WHERE classification = 'existing urban'",
+        con=connect_class()
     )['doruc'].values
-    doruc_df = pd.read_sql("SELECT {}, {} FROM vector.parcel2015_orange".format(parcel_uniqueid, lucodefield),
-                           connect_spatial())
+    doruc_df = pd.read_sql(
+        sql="SELECT {}, {} FROM vector.parcel2015_orange".format(parcel_uniqueid, lucodefield),
+        con=connect_spatial()
+    )
     lsgoal_df = lsgoal_series.to_frame('ls_goal').merge(doruc_df, on=parcel_uniqueid)
     lsgoal_df.loc[lsgoal_df['doruc'].isin(lsdoruc), 'ls_goal'] = 9
     lsgoal_df.loc[lsgoal_df['doruc'].isin(exsturbdoruc), 'ls_goal'] = 1
@@ -1045,9 +1214,10 @@ def AgricultureFinal(paraoutput):
     tmbrgoal_df.loc[tmbrgoal_df['doruc'].isin(exsturbdoruc), 'tmbr_goal'] = 1
     tmbrgoal_series = pd.Series(tmbrgoal_df['tmbr_goal'].values, index=tmbrgoal_df[parcel_uniqueid])
     agfinal_wgt = pd.read_sql(
-        "SELECT sublevel_name, weight FROM wgt_lucis "
-        "WHERE land_use_type = 'ag' AND level = 'final'",
-        connect_class(), index_col='sublevel_name'
+        sql="SELECT sublevel_name, weight FROM wgt_lucis "
+            "WHERE land_use_type = 'ag' AND level = 'final'",
+        con=connect_class(),
+        index_col='sublevel_name'
     )['weight']
     agfinal_series = (rcrpgoal_series * agfinal_wgt['rcrp'] +
                       lsgoal_series * agfinal_wgt['ls'] +
